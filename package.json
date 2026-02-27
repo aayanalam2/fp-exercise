@@ -1,0 +1,28 @@
+{
+  "name": "fp-exercise",
+  "version": "1.0.0",
+  "description": "Functional pricing engine exercise",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@carbonteq/fp": "^0.10.0",
+    "currency-codes-ts": "^3.0.0",
+    "ramda": "^0.32.0"
+  },
+  "devDependencies": {
+    "@types/ramda": "^0.31.1",
+    "@vitest/coverage-v8": "^4.0.18",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18"
+  }
+}
