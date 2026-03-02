@@ -18,6 +18,8 @@
 import { describe, it, expect } from 'vitest';
 import type { NonEmptyArray } from 'ramda';
 import type { Listing, MarketSnapshot, Criteria, PricingRule, CurrencyCode } from '../types.js';
+import { ID, SignedIncrement, Radius, MinSample, MaxAgeDays } from '../types.js';
+import type { ComparableScope } from '../types.js';
 import { median, applyIncrement, applyBounds, computePrice } from '../base.js';
 import { byCurrency, byValidPrice, byMaxAge, byScope, proximitySectionIds } from '../filters.js';
 import { evaluateRule, recommendForSeat } from '../rule.js';
@@ -31,20 +33,46 @@ const NOW = Date.parse('2026-02-27T12:00:00Z');
 const RECENT = '2026-02-26T10:00:00Z'; // ~26 hours ago – within any reasonable window
 const STALE = '2025-12-01T00:00:00Z'; // ~88 days ago
 
-const makeListing = (
-  overrides: Partial<Listing> & {
-    seatId?: string;
-    zoneId?: string;
-    sectionId?: string;
-    price?: number;
-    currency?: CurrencyCode;
-    listedAt?: string;
-  } = {},
-): Listing => ({
-  eventId: 'evt-1',
-  zoneId: overrides.zoneId ?? 'z1',
-  sectionId: overrides.sectionId ?? 's1',
-  seatId: overrides.seatId ?? 'seat-1',
+// ---------------------------------------------------------------------------
+// Branded-type construction helpers — each runs Zod validation via .create()
+// ---------------------------------------------------------------------------
+
+const id = (s: string) => ID.create(s).unwrap();
+const inc = (n: number) => SignedIncrement.create(n).unwrap();
+const rad = (n: number) => Radius.create(n).unwrap();
+const mins = (n: number) => MinSample.create(n).unwrap();
+const maxd = (n: number) => MaxAgeDays.create(n).unwrap();
+
+// ---------------------------------------------------------------------------
+// Scope conversion helper
+// ---------------------------------------------------------------------------
+
+type RawScope =
+  | { type: 'zone'; zoneIds: string[] }
+  | { type: 'section'; sectionIds: string[] }
+  | { type: 'proximity'; ofSectionId: string; radius: number };
+
+const toScope = (raw: RawScope): ComparableScope => {
+  if (raw.type === 'zone') return { type: 'zone', zoneIds: raw.zoneIds.map(id) };
+  if (raw.type === 'section') return { type: 'section', sectionIds: raw.sectionIds.map(id) };
+  return { type: 'proximity', ofSectionId: id(raw.ofSectionId), radius: rad(raw.radius) };
+};
+
+type ListingOverrides = {
+  eventId?: string;
+  seatId?: string;
+  zoneId?: string;
+  sectionId?: string;
+  price?: number;
+  currency?: CurrencyCode;
+  listedAt?: string;
+};
+
+const makeListing = (overrides: ListingOverrides = {}): Listing => ({
+  eventId: id(overrides.eventId ?? 'evt-1'),
+  zoneId: id(overrides.zoneId ?? 'z1'),
+  sectionId: id(overrides.sectionId ?? 's1'),
+  seatId: id(overrides.seatId ?? 'seat-1'),
   zoneLabel: 'Zone A',
   sectionLabel: 'Section 101',
   seatNumber: '1',
@@ -53,13 +81,12 @@ const makeListing = (
     listedAt: overrides.listedAt ?? RECENT,
     currency: overrides.currency ?? 'USD',
   },
-  ...overrides,
 });
 
 // A minimal valid market snapshot
 const makeMarket = (listings: Listing[]): MarketSnapshot => ({
   event: {
-    eventId: 'evt-1',
+    eventId: id('evt-1'),
     name: 'Test Event',
     venue: 'Test Arena',
     dateISO: '2026-03-15',
@@ -68,16 +95,30 @@ const makeMarket = (listings: Listing[]): MarketSnapshot => ({
   listings,
 });
 
-const makeRule = (overrides: Partial<PricingRule> = {}): PricingRule => ({
-  id: 'r1',
-  label: 'Default rule',
-  target: { type: 'zone', zoneIds: ['z1'] },
-  increment: 0,
-  ...overrides,
+type RuleOverrides = {
+  id?: string;
+  label?: string;
+  target?: RawScope;
+  increment?: number;
+  floor?: number;
+  ceiling?: number;
+  minSample?: number;
+  maxAgeDays?: number;
+};
+
+const makeRule = (overrides: RuleOverrides = {}): PricingRule => ({
+  id: id(overrides.id ?? 'r1'),
+  label: overrides.label ?? 'Default rule',
+  target: toScope(overrides.target ?? { type: 'zone', zoneIds: ['z1'] }),
+  increment: inc(overrides.increment ?? 0),
+  floor: overrides.floor,
+  ceiling: overrides.ceiling,
+  minSample: overrides.minSample !== undefined ? mins(overrides.minSample) : undefined,
+  maxAgeDays: overrides.maxAgeDays !== undefined ? maxd(overrides.maxAgeDays) : undefined,
 });
 
 const makeCriteria = (rules: PricingRule[] = [makeRule()]): Criteria => ({
-  criteriaId: 'c1',
+  criteriaId: id('c1'),
   currency: 'USD',
   rules,
 });
@@ -287,24 +328,24 @@ describe('byMaxAge', () => {
 
   it('retains recent listings within the age window', () => {
     const listings = [makeListing({ listedAt: RECENT })];
-    expect(byMaxAge(7, NOW)(listings)).toHaveLength(1);
+    expect(byMaxAge(maxd(7), NOW)(listings)).toHaveLength(1);
   });
 
   it('removes stale listings beyond the age cap', () => {
     const listings = [makeListing({ listedAt: STALE })];
-    expect(byMaxAge(7, NOW)(listings)).toHaveLength(0);
+    expect(byMaxAge(maxd(7), NOW)(listings)).toHaveLength(0);
   });
 
   it('removes listings with unparseable listedAt when age cap active', () => {
     const listings = [makeListing({ listedAt: 'not-a-date' })];
-    expect(byMaxAge(30, NOW)(listings)).toHaveLength(0);
+    expect(byMaxAge(maxd(30), NOW)(listings)).toHaveLength(0);
   });
 
   it('keeps listing listed exactly at the cutoff boundary', () => {
     // Exactly 7 days before NOW to the millisecond → should be retained
     const exactCutoff = new Date(NOW - 7 * 86_400_000).toISOString();
     const listings = [makeListing({ listedAt: exactCutoff })];
-    expect(byMaxAge(7, NOW)(listings)).toHaveLength(1);
+    expect(byMaxAge(maxd(7), NOW)(listings)).toHaveLength(1);
   });
 });
 
@@ -315,55 +356,55 @@ describe('byScope – zone', () => {
       makeListing({ zoneId: 'z2' }),
       makeListing({ zoneId: 'z3' }),
     ];
-    const result = byScope({ type: 'zone', zoneIds: ['z1', 'z3'] }, [])(listings);
+    const result = byScope({ type: 'zone', zoneIds: [id('z1'), id('z3')] }, [])(listings);
     expect(result.map((l) => l.zoneId)).toEqual(['z1', 'z3']);
   });
 
   it('returns empty when no zone matches', () => {
     const listings = [makeListing({ zoneId: 'z99' })];
-    expect(byScope({ type: 'zone', zoneIds: ['z1'] }, [])(listings)).toHaveLength(0);
+    expect(byScope({ type: 'zone', zoneIds: [id('z1')] }, [])(listings)).toHaveLength(0);
   });
 });
 
 describe('byScope – section', () => {
   it('keeps listings in the allowed section IDs', () => {
     const listings = [makeListing({ sectionId: 's1' }), makeListing({ sectionId: 's2' })];
-    const result = byScope({ type: 'section', sectionIds: ['s1'] }, [])(listings);
+    const result = byScope({ type: 'section', sectionIds: [id('s1')] }, [])(listings);
     expect(result).toHaveLength(1);
     expect(result[0]!.sectionId).toBe('s1');
   });
 });
 
 describe('proximitySectionIds', () => {
-  const allIds = ['s1', 's2', 's3', 's4', 's5'];
+  const allIds = ['s1', 's2', 's3', 's4', 's5'].map(id);
 
   it('returns only the target when radius = 0', () => {
-    expect(proximitySectionIds(allIds, 's3', 0)).toEqual(['s3']);
+    expect(proximitySectionIds(allIds, id('s3'), rad(0))).toEqual(['s3']);
   });
 
   it('returns neighbours within radius', () => {
-    expect(proximitySectionIds(allIds, 's3', 1)).toEqual(['s2', 's3', 's4']);
+    expect(proximitySectionIds(allIds, id('s3'), rad(1))).toEqual(['s2', 's3', 's4']);
   });
 
   it('does not go below index 0', () => {
-    expect(proximitySectionIds(allIds, 's1', 2)).toEqual(['s1', 's2', 's3']);
+    expect(proximitySectionIds(allIds, id('s1'), rad(2))).toEqual(['s1', 's2', 's3']);
   });
 
   it('does not go above last index', () => {
-    expect(proximitySectionIds(allIds, 's5', 2)).toEqual(['s3', 's4', 's5']);
+    expect(proximitySectionIds(allIds, id('s5'), rad(2))).toEqual(['s3', 's4', 's5']);
   });
 
   it('returns empty array when ofSectionId is not in the list', () => {
-    expect(proximitySectionIds(allIds, 'sX', 2)).toEqual([]);
+    expect(proximitySectionIds(allIds, id('sX'), rad(2))).toEqual([]);
   });
 });
 
 describe('byScope – proximity', () => {
   it('keeps listings in proximate sections', () => {
-    const allSectionIds = ['s1', 's2', 's3', 's4', 's5'];
-    const listings = allSectionIds.map((sid) => makeListing({ sectionId: sid }));
+    const allSectionIds = ['s1', 's2', 's3', 's4', 's5'].map(id);
+    const listings = ['s1', 's2', 's3', 's4', 's5'].map((sid) => makeListing({ sectionId: sid }));
     const result = byScope(
-      { type: 'proximity', ofSectionId: 's3', radius: 1 },
+      { type: 'proximity', ofSectionId: id('s3'), radius: rad(1) },
       allSectionIds,
     )(listings);
     expect(result.map((l) => l.sectionId).sort()).toEqual(['s2', 's3', 's4']);
@@ -371,7 +412,9 @@ describe('byScope – proximity', () => {
 
   it('returns empty when ofSectionId is not present', () => {
     const listings = [makeListing({ sectionId: 's1' })];
-    const result = byScope({ type: 'proximity', ofSectionId: 'sX', radius: 2 }, ['s1'])(listings);
+    const result = byScope({ type: 'proximity', ofSectionId: id('sX'), radius: rad(2) }, [
+      id('s1'),
+    ])(listings);
     expect(result).toHaveLength(0);
   });
 });
@@ -387,7 +430,7 @@ describe('evaluateRule', () => {
       makeListing({ zoneId: 'z1', price: 200 }),
     ];
     const rule = makeRule({ target: { type: 'zone', zoneIds: ['z1'] }, increment: 10 });
-    const outcome = evaluateRule(rule, listings, 'USD', ['s1'], NOW);
+    const outcome = evaluateRule(rule, listings, 'USD', [id('s1')], NOW);
     // median(100, 200) = 150 + 10 = 160
     expect(outcome.result.isOk()).toBe(true);
     expect(outcome.result.unwrap().price).toBe(160);
@@ -397,7 +440,7 @@ describe('evaluateRule', () => {
   it('returns Err when no comparables in target zone', () => {
     const listings = [makeListing({ zoneId: 'z2', price: 100 })];
     const rule = makeRule({ target: { type: 'zone', zoneIds: ['z1'] } });
-    const outcome = evaluateRule(rule, listings, 'USD', ['s1'], NOW);
+    const outcome = evaluateRule(rule, listings, 'USD', [id('s1')], NOW);
     expect(outcome.result.isErr()).toBe(true);
   });
 
@@ -407,7 +450,7 @@ describe('evaluateRule', () => {
       target: { type: 'zone', zoneIds: ['z1'] },
       minSample: 3,
     });
-    const outcome = evaluateRule(rule, listings, 'USD', ['s1'], NOW);
+    const outcome = evaluateRule(rule, listings, 'USD', [id('s1')], NOW);
     expect(outcome.result.isErr()).toBe(true);
     expect(outcome.result.unwrapErr().type).toBe('InsufficientSampleError');
     expect(
@@ -427,7 +470,7 @@ describe('evaluateRule', () => {
       target: { type: 'zone', zoneIds: ['z1'] },
       maxAgeDays: 7,
     });
-    const outcome = evaluateRule(rule, staleListings, 'USD', ['s1'], NOW);
+    const outcome = evaluateRule(rule, staleListings, 'USD', [id('s1')], NOW);
     expect(outcome.result.isErr()).toBe(true);
     expect(outcome.result.unwrapErr().type).toBe('NoComparablesError');
   });
@@ -435,7 +478,7 @@ describe('evaluateRule', () => {
   it('filters out non-USD listings when criteria currency is USD', () => {
     const listings = [makeListing({ zoneId: 'z1', price: 100, currency: 'EUR' })];
     const rule = makeRule({ target: { type: 'zone', zoneIds: ['z1'] } });
-    const outcome = evaluateRule(rule, listings, 'USD', ['s1'], NOW);
+    const outcome = evaluateRule(rule, listings, 'USD', [id('s1')], NOW);
     expect(outcome.result.isErr()).toBe(true);
   });
 });
@@ -458,7 +501,7 @@ describe('recommendForSeat', () => {
       [ruleNoMatch, ruleMatch],
       listings,
       'USD',
-      ['s1'],
+      [id('s1')],
       NOW,
     );
     expect(rec.recommendedPrice.isSome()).toBe(true);
@@ -472,7 +515,7 @@ describe('recommendForSeat', () => {
   it('returns None recommendedPrice when all rules fail', () => {
     const listings = [makeListing({ zoneId: 'z99' })];
     const ruleNoMatch = makeRule({ target: { type: 'zone', zoneIds: ['z1'] } });
-    const rec = recommendForSeat(listings[0]!, [ruleNoMatch], listings, 'USD', ['s1'], NOW);
+    const rec = recommendForSeat(listings[0]!, [ruleNoMatch], listings, 'USD', [id('s1')], NOW);
     expect(rec.recommendedPrice.isNone()).toBe(true);
   });
 });

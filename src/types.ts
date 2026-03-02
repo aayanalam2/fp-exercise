@@ -2,10 +2,22 @@
 // Domain identifiers
 // ---------------------------------------------------------------------------
 
-export type ID = string;
 export type Unit = void;
 import type { CurrencyCode } from 'currency-codes-ts/dist/types';
 export type { CurrencyCode } from 'currency-codes-ts/dist/types';
+export {
+  ID,
+  SignedIncrement,
+  Radius,
+  MinSample,
+  MaxAgeDays,
+  InvalidIDError,
+  InvalidSignedIncrementError,
+  InvalidRadiusError,
+  InvalidMinSampleError,
+  InvalidMaxAgeDaysError,
+} from './refined.js';
+import type { ID, Radius, SignedIncrement, MinSample, MaxAgeDays } from './refined.js';
 
 // ---------------------------------------------------------------------------
 // Market data
@@ -59,7 +71,6 @@ export interface MarketSnapshot {
 // ---------------------------------------------------------------------------
 
 export type NumericBound = number | undefined;
-export type SignedIncrement = number;
 
 /**
  * Defines which comparable listings to pull when computing a base price.
@@ -72,7 +83,7 @@ export type SignedIncrement = number;
 export type ComparableScope =
   | { type: 'zone'; zoneIds: ID[] }
   | { type: 'section'; sectionIds: ID[] }
-  | { type: 'proximity'; ofSectionId: ID; radius: number };
+  | { type: 'proximity'; ofSectionId: ID; radius: Radius };
 
 export interface PricingRule {
   id: ID;
@@ -84,9 +95,9 @@ export interface PricingRule {
   floor?: NumericBound;
   ceiling?: NumericBound;
   /** Minimum number of valid comparable listings required to produce a price. */
-  minSample?: number;
+  minSample?: MinSample;
   /** Reject listings older than this many days relative to evaluation time. */
-  maxAgeDays?: number;
+  maxAgeDays?: MaxAgeDays;
 }
 
 export interface Criteria {

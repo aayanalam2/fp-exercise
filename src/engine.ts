@@ -19,6 +19,7 @@ import type {
   SeatRecommendation,
   Unit,
   Listing,
+  ID,
 } from './types.js';
 import { recommendForSeat } from './rule.js';
 
@@ -31,12 +32,10 @@ import { recommendForSeat } from './rule.js';
  * snapshot's listing pool.  Used by the `proximity` scope resolver.
  */
 
-const collectSectionIds = R.pipe(
-  R.map((l: Listing) => l.sectionId),
-  R.uniq,
-  R.sort(R.comparator(R.lt)),
-  R.map(String),
-);
+const collectSectionIds = (listings: readonly Listing[]): ID[] => {
+  const ids = R.map((l: Listing) => l.sectionId, listings as Listing[]);
+  return R.sort(R.comparator(R.lt), R.uniq(ids));
+};
 
 // ---------------------------------------------------------------------------
 // Validation

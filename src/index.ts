@@ -16,16 +16,23 @@ export type {
 } from './errors.js';
 export { PricingErrors } from './errors.js';
 
+// Refined type validation errors
+export {
+  InvalidIDError,
+  InvalidSignedIncrementError,
+  InvalidRadiusError,
+  InvalidMinSampleError,
+  InvalidMaxAgeDaysError,
+} from './refined.js';
+
 // Types
 export type {
-  ID,
   CurrencyCode,
   ListingSnapshot,
   EventMeta,
   Listing,
   MarketSnapshot,
   NumericBound,
-  SignedIncrement,
   ComparableScope,
   PricingRule,
   Criteria,
@@ -34,6 +41,9 @@ export type {
   SeatRecommendation,
   PricingReport,
 } from './types.js';
+
+// Refined branded types (values + types)
+export { ID, SignedIncrement, Radius, MinSample, MaxAgeDays } from './refined.js';
 
 // Engine
 export { runPricingEngine } from './engine.js';

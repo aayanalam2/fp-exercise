@@ -17,8 +17,10 @@
   "license": "ISC",
   "dependencies": {
     "@carbonteq/fp": "^0.10.0",
+    "@carbonteq/refined-type": "^0.1.1",
     "currency-codes-ts": "^3.0.0",
-    "ramda": "^0.32.0"
+    "ramda": "^0.32.0",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@types/ramda": "^0.31.1",
