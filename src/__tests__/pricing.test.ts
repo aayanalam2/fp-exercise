@@ -17,6 +17,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
+import { Option } from '@carbonteq/fp';
 import type { NonEmptyArray } from 'ramda';
 import type { Listing, MarketSnapshot, Criteria, PricingRule } from '../types.js';
 import {
@@ -91,12 +92,17 @@ const makeListing = (overrides: ListingOverrides = {}): Listing => ({
   sectionId: id(overrides.sectionId ?? 's1'),
   seatId: id(overrides.seatId ?? 'seat-1'),
   zoneLabel: 'Zone A',
+  zoneName: Option.None,
   sectionLabel: 'Section 101',
+  sectionName: Option.None,
   seatNumber: '1',
+  seatLabel: Option.None,
+  fullName: Option.None,
   listing: {
     listingPrice: overrides.price ?? 100,
-    listedAt: overrides.listedAt ?? RECENT,
+    listedAt: isoDate(overrides.listedAt ?? RECENT),
     currency: ccy(overrides.currency ?? 'USD'),
+    quantity: Option.None,
   },
 });
 
@@ -131,10 +137,12 @@ const makeRule = (overrides: RuleOverrides = {}): PricingRule => ({
   label: lbl(overrides.label ?? 'Default rule'),
   target: toScope(overrides.target ?? { type: 'zone', zoneIds: ['z1'] }),
   increment: inc(overrides.increment ?? 0),
-  floor: overrides.floor !== undefined ? fl(overrides.floor) : undefined,
-  ceiling: overrides.ceiling !== undefined ? ceil(overrides.ceiling) : undefined,
-  minSample: overrides.minSample !== undefined ? mins(overrides.minSample) : undefined,
-  maxAgeDays: overrides.maxAgeDays !== undefined ? maxd(overrides.maxAgeDays) : undefined,
+  floor: overrides.floor !== undefined ? Option.Some(fl(overrides.floor)) : Option.None,
+  ceiling: overrides.ceiling !== undefined ? Option.Some(ceil(overrides.ceiling)) : Option.None,
+  minSample:
+    overrides.minSample !== undefined ? Option.Some(mins(overrides.minSample)) : Option.None,
+  maxAgeDays:
+    overrides.maxAgeDays !== undefined ? Option.Some(maxd(overrides.maxAgeDays)) : Option.None,
 });
 
 const makeCriteria = (rules: PricingRule[] = [makeRule()]): Criteria => ({
@@ -187,34 +195,34 @@ describe('applyIncrement', () => {
 
 describe('applyBounds', () => {
   it('clamps to floor when price is below floor', () => {
-    expect(applyBounds(fl(50), undefined)(30)).toBe(50);
+    expect(applyBounds(Option.Some(fl(50)), Option.None)(30)).toBe(50);
   });
 
   it('does not change price already above floor', () => {
-    expect(applyBounds(fl(50), undefined)(80)).toBe(80);
+    expect(applyBounds(Option.Some(fl(50)), Option.None)(80)).toBe(80);
   });
 
   it('clamps to ceiling when price is above ceiling', () => {
-    expect(applyBounds(undefined, ceil(200))(250)).toBe(200);
+    expect(applyBounds(Option.None, Option.Some(ceil(200)))(250)).toBe(200);
   });
 
   it('does not change price already below ceiling', () => {
-    expect(applyBounds(undefined, ceil(200))(150)).toBe(150);
+    expect(applyBounds(Option.None, Option.Some(ceil(200)))(150)).toBe(150);
   });
 
   it('applies both floor and ceiling together', () => {
-    expect(applyBounds(fl(50), ceil(200))(300)).toBe(200);
-    expect(applyBounds(fl(50), ceil(200))(10)).toBe(50);
-    expect(applyBounds(fl(50), ceil(200))(100)).toBe(100);
+    expect(applyBounds(Option.Some(fl(50)), Option.Some(ceil(200)))(300)).toBe(200);
+    expect(applyBounds(Option.Some(fl(50)), Option.Some(ceil(200)))(10)).toBe(50);
+    expect(applyBounds(Option.Some(fl(50)), Option.Some(ceil(200)))(100)).toBe(100);
   });
 
   it('ceiling wins when floor > ceiling (defensive clamp)', () => {
     // floor=200, ceiling=100 → floored=200 → capped to 100
-    expect(applyBounds(fl(200), ceil(100))(50)).toBe(100);
+    expect(applyBounds(Option.Some(fl(200)), Option.Some(ceil(100)))(50)).toBe(100);
   });
 
-  it('returns price unchanged when both bounds are undefined', () => {
-    expect(applyBounds(undefined, undefined)(75)).toBe(75);
+  it('returns price unchanged when both bounds are None', () => {
+    expect(applyBounds(Option.None, Option.None)(75)).toBe(75);
   });
 });
 
@@ -225,9 +233,9 @@ describe('computePrice', () => {
     const out = computePrice({
       comparables: base,
       increment: 0,
-      floor: undefined,
-      ceiling: undefined,
-      minSample: undefined,
+      floor: Option.None,
+      ceiling: Option.None,
+      minSample: Option.None,
     });
     expect(out.isOk()).toBe(true);
     expect(out.unwrap().price).toBe(150); // median of [100, 200]
@@ -237,9 +245,9 @@ describe('computePrice', () => {
     const out = computePrice({
       comparables: base,
       increment: 25,
-      floor: undefined,
-      ceiling: undefined,
-      minSample: undefined,
+      floor: Option.None,
+      ceiling: Option.None,
+      minSample: Option.None,
     });
     expect(out.isOk()).toBe(true);
     expect(out.unwrap().price).toBe(175);
@@ -250,9 +258,9 @@ describe('computePrice', () => {
     const out = computePrice({
       comparables: single,
       increment: 0,
-      floor: undefined,
-      ceiling: undefined,
-      minSample: 3,
+      floor: Option.None,
+      ceiling: Option.None,
+      minSample: Option.Some(mins(3)),
     });
     expect(out.isErr()).toBe(true);
     expect(out.unwrapErr().type).toBe('InsufficientSampleError');
@@ -265,9 +273,9 @@ describe('computePrice', () => {
     const out = computePrice({
       comparables: [makeListing({ price: 100 })] as NonEmptyArray<Listing>,
       increment: -80,
-      floor: fl(50),
-      ceiling: undefined,
-      minSample: undefined,
+      floor: Option.Some(fl(50)),
+      ceiling: Option.None,
+      minSample: Option.None,
     });
     expect(out.isOk()).toBe(true);
     expect(out.unwrap().price).toBe(50);
@@ -278,9 +286,9 @@ describe('computePrice', () => {
     const out = computePrice({
       comparables: [makeListing({ price: 100 })] as NonEmptyArray<Listing>,
       increment: 100,
-      floor: undefined,
-      ceiling: ceil(150),
-      minSample: undefined,
+      floor: Option.None,
+      ceiling: Option.Some(ceil(150)),
+      minSample: Option.None,
     });
     expect(out.isOk()).toBe(true);
     expect(out.unwrap().price).toBe(150);
@@ -389,19 +397,19 @@ describe('byValidPrice', () => {
 });
 
 describe('byMaxAge', () => {
-  it('returns all listings when maxAgeDays is undefined', () => {
+  it('returns all listings when maxAgeDays is None', () => {
     const listings = [makeListing({ listedAt: STALE })];
-    expect(byMaxAge(undefined, NOW)(listings)).toHaveLength(1);
+    expect(byMaxAge(Option.None, NOW)(listings)).toHaveLength(1);
   });
 
   it('retains recent listings within the age window', () => {
     const listings = [makeListing({ listedAt: RECENT })];
-    expect(byMaxAge(maxd(7), NOW)(listings)).toHaveLength(1);
+    expect(byMaxAge(Option.Some(maxd(7)), NOW)(listings)).toHaveLength(1);
   });
 
   it('removes stale listings beyond the age cap', () => {
     const listings = [makeListing({ listedAt: STALE })];
-    expect(byMaxAge(maxd(7), NOW)(listings)).toHaveLength(0);
+    expect(byMaxAge(Option.Some(maxd(7)), NOW)(listings)).toHaveLength(0);
   });
 
   it('removes listings with unparseable listedAt when age cap active', () => {
@@ -415,7 +423,7 @@ describe('byMaxAge', () => {
     // Exactly 7 days before NOW to the millisecond → should be retained
     const exactCutoff = new Date(NOW - 7 * 86_400_000).toISOString();
     const listings = [makeListing({ listedAt: exactCutoff })];
-    expect(byMaxAge(maxd(7), NOW)(listings)).toHaveLength(1);
+    expect(byMaxAge(Option.Some(maxd(7)), NOW)(listings)).toHaveLength(1);
   });
 });
 

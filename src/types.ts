@@ -50,7 +50,7 @@ export interface ListingSnapshot {
   listingPrice: number;
   listedAt: ISODateString;
   currency: CurrencyCode;
-  quantity?: number;
+  quantity: Option<number>;
 }
 
 export interface EventMeta {
@@ -68,12 +68,12 @@ export interface Listing {
   sectionId: ID;
   seatId: ID;
   zoneLabel: string;
-  zoneName?: string;
+  zoneName: Option<string>;
   sectionLabel: string;
-  sectionName?: string;
+  sectionName: Option<string>;
   seatNumber: string;
-  seatLabel?: string;
-  fullName?: string;
+  seatLabel: Option<string>;
+  fullName: Option<string>;
   listing: ListingSnapshot;
 }
 
@@ -108,12 +108,12 @@ export interface PricingRule {
   target: ComparableScope;
   /** Amount added to (or subtracted from) the median comparable price. */
   increment: SignedIncrement;
-  floor?: Floor;
-  ceiling?: Ceiling;
+  floor: Option<Floor>;
+  ceiling: Option<Ceiling>;
   /** Minimum number of valid comparable listings required to produce a price. */
-  minSample?: MinSample;
+  minSample: Option<MinSample>;
   /** Reject listings older than this many days relative to evaluation time. */
-  maxAgeDays?: MaxAgeDays;
+  maxAgeDays: Option<MaxAgeDays>;
 }
 
 export interface Criteria {

@@ -10,7 +10,7 @@
 
 import * as R from 'ramda';
 import { Result, Option } from '@carbonteq/fp';
-import type { Listing, PriceResult, Floor, Ceiling } from './types.js';
+import type { Listing, PriceResult, Floor, Ceiling, MinSample } from './types.js';
 import { PricingErrors } from './errors.js';
 import type { ComputeError } from './errors.js';
 import { NonEmptyArray } from 'ramda';
@@ -73,17 +73,12 @@ export const applyIncrement: (increment: number) => (base: number) => number = R
  *   When floor > ceiling the ceiling takes precedence (price = ceiling) to
  *   avoid returning a nonsensical value; this is a defensive choice.
  */
-export const applyBounds: (
-  floor: Floor | undefined,
-  ceiling: Ceiling | undefined,
-) => (price: number) => number = R.curry(
-  (floor: Floor | undefined, ceiling: Ceiling | undefined, price: number): number => {
-    const floored = floor !== undefined ? Math.max(price, floor) : price;
-    const capped = ceiling !== undefined ? Math.min(floored, ceiling) : floored;
-    return capped;
-  },
-);
-
+export const applyBounds =
+  (floor: Option<Floor>, ceiling: Option<Ceiling>) =>
+  (price: number): number => {
+    const withFloor = floor.map((f) => Math.max(price, f)).unwrapOr(price);
+    return ceiling.map((c) => Math.min(withFloor, c)).unwrapOr(withFloor);
+  };
 // ---------------------------------------------------------------------------
 // Compose: base → adjusted PriceResult
 // ---------------------------------------------------------------------------
@@ -101,21 +96,30 @@ export const applyBounds: (
 export const computePrice = (opts: {
   comparables: NonEmptyArray<Listing>;
   increment: number;
-  floor: Floor | undefined;
-  ceiling: Ceiling | undefined;
-  minSample: number | undefined;
+  floor: Option<Floor>;
+  ceiling: Option<Ceiling>;
+  minSample: Option<MinSample>;
 }): Result<PriceResult, ComputeError> => {
   const { comparables, increment, floor, ceiling, minSample } = opts;
 
-  if (minSample !== undefined && comparables.length < minSample) {
-    return Result.Err(PricingErrors.insufficientSample(comparables.length, minSample));
-  }
+  const checkMinSample = (
+    cs: NonEmptyArray<Listing>,
+  ): Result<NonEmptyArray<Listing>, ComputeError> =>
+    minSample
+      .map(
+        (ms): Result<NonEmptyArray<Listing>, ComputeError> =>
+          cs.length >= ms
+            ? Result.Ok(cs)
+            : Result.Err(PricingErrors.insufficientSample(cs.length, ms)),
+      )
+      .unwrapOr(Result.Ok(cs));
 
-  const prices = extractPrices(comparables);
-  const baseResult = median(prices).toResult(PricingErrors.noComparables());
-
-  return baseResult.map((base) => {
-    const adjusted = R.pipe(applyIncrement(increment), applyBounds(floor, ceiling))(base);
-    return { price: adjusted };
+  const toPrice = (base: number): PriceResult => ({
+    price: R.pipe(applyIncrement(increment), applyBounds(floor, ceiling))(base),
   });
+
+  return checkMinSample(comparables)
+    .map(extractPrices)
+    .flatMap((prices) => median(prices).toResult(PricingErrors.noComparables()))
+    .map(toPrice);
 };

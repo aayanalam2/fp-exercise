@@ -6,6 +6,7 @@
  */
 
 import * as R from 'ramda';
+import { Option } from '@carbonteq/fp';
 import type {
   Listing,
   ComparableScope,
@@ -70,12 +71,14 @@ export const byValidPrice = (listings: readonly Listing[]): Listing[] =>
  * age cap is active.
  */
 export const byMaxAge =
-  (maxAgeDays: MaxAgeDays | undefined, nowMs: number) =>
-  (listings: readonly Listing[]): Listing[] => {
-    if (maxAgeDays === undefined) return listings as Listing[];
-    const cutoffMs = nowMs - maxAgeDays * MS_PER_DAY;
-    return R.filter((l) => isoToMs(l.listing.listedAt) >= cutoffMs, listings as Listing[]);
-  };
+  (maxAgeDays: Option<MaxAgeDays>, nowMs: number) =>
+  (listings: readonly Listing[]): Listing[] =>
+    maxAgeDays
+      .map((days) => {
+        const cutoffMs = nowMs - days * MS_PER_DAY;
+        return R.filter((l: Listing) => isoToMs(l.listing.listedAt) >= cutoffMs, listings as Listing[]);
+      })
+      .unwrapOr(listings as Listing[]);
 
 // ---------------------------------------------------------------------------
 // Scope filter
@@ -153,7 +156,7 @@ export const byScope =
 export const buildComparableFilter = (opts: {
   currency: CurrencyCode;
   scope: ComparableScope;
-  maxAgeDays: MaxAgeDays | undefined;
+  maxAgeDays: Option<MaxAgeDays>;
   allSectionIds: readonly ID[];
   nowMs: number;
 }) =>
