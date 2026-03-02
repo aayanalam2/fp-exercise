@@ -42,7 +42,7 @@ export const evaluateRule = (
   listings: readonly Listing[],
   currency: CurrencyCode,
   allSectionIds: readonly ID[],
-  nowMs: number
+  nowMs: number,
 ): RuleOutcome => {
   const filterComparables = buildComparableFilter({
     currency,
@@ -95,22 +95,17 @@ export const recommendForSeat = (
   listings: readonly Listing[],
   currency: CurrencyCode,
   allSectionIds: readonly ID[],
-  nowMs: number
+  nowMs: number,
 ): SeatRecommendation => {
   const outcomes: RuleOutcome[] = R.map(
     (rule) => evaluateRule(rule, listings, currency, allSectionIds, nowMs),
-    rules as PricingRule[]
+    rules as PricingRule[],
   );
 
   // Walk outcomes in order; take the first Ok result as the recommendation.
-  const firstSuccess = R.find(
-    (o: RuleOutcome) => o.result.isOk(),
-    outcomes
-  );
+  const firstSuccess = R.find((o: RuleOutcome) => o.result.isOk(), outcomes);
 
-  const recommendedPrice = firstSuccess
-    ? firstSuccess.result.toOption()
-    : Option.None;
+  const recommendedPrice = firstSuccess ? firstSuccess.result.toOption() : Option.None;
 
   return {
     seatId: listing.seatId,

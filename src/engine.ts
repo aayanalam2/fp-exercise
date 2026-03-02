@@ -17,7 +17,6 @@ import type {
   Criteria,
   PricingReport,
   SeatRecommendation,
-  ID,
   Unit,
   Listing,
 } from './types.js';
@@ -32,13 +31,12 @@ import { recommendForSeat } from './rule.js';
  * snapshot's listing pool.  Used by the `proximity` scope resolver.
  */
 
-const collectSectionIds =
-  R.pipe(
-    R.map((l : Listing) => l.sectionId),
-    R.uniq,
-    R.sort(R.comparator(R.lt)),
-    R.map(String)
-  )
+const collectSectionIds = R.pipe(
+  R.map((l: Listing) => l.sectionId),
+  R.uniq,
+  R.sort(R.comparator(R.lt)),
+  R.map(String),
+);
 
 // ---------------------------------------------------------------------------
 // Validation
@@ -82,7 +80,7 @@ const validateCurrency = (
 export const runPricingEngine = (
   snapshot: MarketSnapshot,
   criteria: Criteria,
-  nowMs: number = Date.now()
+  nowMs: number = Date.now(),
 ): Result<PricingReport, EngineError> =>
   validateCurrency(snapshot, criteria).map(() => {
     const allSectionIds = collectSectionIds(snapshot.listings);
@@ -96,9 +94,9 @@ export const runPricingEngine = (
           snapshot.listings,
           criteria.currency,
           allSectionIds,
-          nowMs
+          nowMs,
         ),
-      snapshot.listings
+      snapshot.listings,
     );
 
     return {

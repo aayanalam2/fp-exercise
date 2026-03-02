@@ -19,13 +19,7 @@ import { describe, it, expect } from 'vitest';
 import type { NonEmptyArray } from 'ramda';
 import type { Listing, MarketSnapshot, Criteria, PricingRule, CurrencyCode } from '../types.js';
 import { median, applyIncrement, applyBounds, computePrice } from '../base.js';
-import {
-  byCurrency,
-  byValidPrice,
-  byMaxAge,
-  byScope,
-  proximitySectionIds,
-} from '../filters.js';
+import { byCurrency, byValidPrice, byMaxAge, byScope, proximitySectionIds } from '../filters.js';
 import { evaluateRule, recommendForSeat } from '../rule.js';
 import { runPricingEngine } from '../engine.js';
 
@@ -35,7 +29,7 @@ import { runPricingEngine } from '../engine.js';
 
 const NOW = Date.parse('2026-02-27T12:00:00Z');
 const RECENT = '2026-02-26T10:00:00Z'; // ~26 hours ago – within any reasonable window
-const STALE = '2025-12-01T00:00:00Z';  // ~88 days ago
+const STALE = '2025-12-01T00:00:00Z'; // ~88 days ago
 
 const makeListing = (
   overrides: Partial<Listing> & {
@@ -45,7 +39,7 @@ const makeListing = (
     price?: number;
     currency?: CurrencyCode;
     listedAt?: string;
-  } = {}
+  } = {},
 ): Listing => ({
   eventId: 'evt-1',
   zoneId: overrides.zoneId ?? 'z1',
@@ -167,20 +161,38 @@ describe('computePrice', () => {
   const base = [makeListing({ price: 100 }), makeListing({ price: 200 })] as NonEmptyArray<Listing>;
 
   it('returns Ok with a price for a valid comparable set', () => {
-    const out = computePrice({ comparables: base, increment: 0, floor: undefined, ceiling: undefined, minSample: undefined });
+    const out = computePrice({
+      comparables: base,
+      increment: 0,
+      floor: undefined,
+      ceiling: undefined,
+      minSample: undefined,
+    });
     expect(out.isOk()).toBe(true);
     expect(out.unwrap().price).toBe(150); // median of [100, 200]
   });
 
   it('applies the increment', () => {
-    const out = computePrice({ comparables: base, increment: 25, floor: undefined, ceiling: undefined, minSample: undefined });
+    const out = computePrice({
+      comparables: base,
+      increment: 25,
+      floor: undefined,
+      ceiling: undefined,
+      minSample: undefined,
+    });
     expect(out.isOk()).toBe(true);
     expect(out.unwrap().price).toBe(175);
   });
 
   it('returns Err when minSample not met', () => {
     const single = [makeListing({ price: 100 })] as NonEmptyArray<Listing>;
-    const out = computePrice({ comparables: single, increment: 0, floor: undefined, ceiling: undefined, minSample: 3 });
+    const out = computePrice({
+      comparables: single,
+      increment: 0,
+      floor: undefined,
+      ceiling: undefined,
+      minSample: 3,
+    });
     expect(out.isErr()).toBe(true);
     expect(out.unwrapErr().type).toBe('InsufficientSampleError');
     expect((out.unwrapErr() as import('../errors.js').InsufficientSampleError).actual).toBe(1);
@@ -189,14 +201,26 @@ describe('computePrice', () => {
 
   it('applies floor after increment', () => {
     // median=100, increment=-80 → 20, floor=50 → 50
-    const out = computePrice({ comparables: [makeListing({ price: 100 })] as NonEmptyArray<Listing>, increment: -80, floor: 50, ceiling: undefined, minSample: undefined });
+    const out = computePrice({
+      comparables: [makeListing({ price: 100 })] as NonEmptyArray<Listing>,
+      increment: -80,
+      floor: 50,
+      ceiling: undefined,
+      minSample: undefined,
+    });
     expect(out.isOk()).toBe(true);
     expect(out.unwrap().price).toBe(50);
   });
 
   it('applies ceiling after increment', () => {
     // median=100, increment=100 → 200, ceiling=150 → 150
-    const out = computePrice({ comparables: [makeListing({ price: 100 })] as NonEmptyArray<Listing>, increment: 100, floor: undefined, ceiling: 150, minSample: undefined });
+    const out = computePrice({
+      comparables: [makeListing({ price: 100 })] as NonEmptyArray<Listing>,
+      increment: 100,
+      floor: undefined,
+      ceiling: 150,
+      minSample: undefined,
+    });
     expect(out.isOk()).toBe(true);
     expect(out.unwrap().price).toBe(150);
   });
@@ -303,10 +327,7 @@ describe('byScope – zone', () => {
 
 describe('byScope – section', () => {
   it('keeps listings in the allowed section IDs', () => {
-    const listings = [
-      makeListing({ sectionId: 's1' }),
-      makeListing({ sectionId: 's2' }),
-    ];
+    const listings = [makeListing({ sectionId: 's1' }), makeListing({ sectionId: 's2' })];
     const result = byScope({ type: 'section', sectionIds: ['s1'] }, [])(listings);
     expect(result).toHaveLength(1);
     expect(result[0]!.sectionId).toBe('s1');
@@ -343,17 +364,14 @@ describe('byScope – proximity', () => {
     const listings = allSectionIds.map((sid) => makeListing({ sectionId: sid }));
     const result = byScope(
       { type: 'proximity', ofSectionId: 's3', radius: 1 },
-      allSectionIds
+      allSectionIds,
     )(listings);
     expect(result.map((l) => l.sectionId).sort()).toEqual(['s2', 's3', 's4']);
   });
 
   it('returns empty when ofSectionId is not present', () => {
     const listings = [makeListing({ sectionId: 's1' })];
-    const result = byScope(
-      { type: 'proximity', ofSectionId: 'sX', radius: 2 },
-      ['s1']
-    )(listings);
+    const result = byScope({ type: 'proximity', ofSectionId: 'sX', radius: 2 }, ['s1'])(listings);
     expect(result).toHaveLength(0);
   });
 });
@@ -392,8 +410,12 @@ describe('evaluateRule', () => {
     const outcome = evaluateRule(rule, listings, 'USD', ['s1'], NOW);
     expect(outcome.result.isErr()).toBe(true);
     expect(outcome.result.unwrapErr().type).toBe('InsufficientSampleError');
-    expect((outcome.result.unwrapErr() as import('../errors.js').InsufficientSampleError).actual).toBe(1);
-    expect((outcome.result.unwrapErr() as import('../errors.js').InsufficientSampleError).required).toBe(3);
+    expect(
+      (outcome.result.unwrapErr() as import('../errors.js').InsufficientSampleError).actual,
+    ).toBe(1);
+    expect(
+      (outcome.result.unwrapErr() as import('../errors.js').InsufficientSampleError).required,
+    ).toBe(3);
   });
 
   it('respects maxAgeDays – stale listings are excluded', () => {
@@ -425,7 +447,11 @@ describe('recommendForSeat', () => {
       makeListing({ seatId: 'seat-B', zoneId: 'z2', price: 200 }),
     ];
     const ruleNoMatch = makeRule({ id: 'r1', target: { type: 'zone', zoneIds: ['z99'] } });
-    const ruleMatch = makeRule({ id: 'r2', target: { type: 'zone', zoneIds: ['z1'] }, increment: 5 });
+    const ruleMatch = makeRule({
+      id: 'r2',
+      target: { type: 'zone', zoneIds: ['z1'] },
+      increment: 5,
+    });
 
     const rec = recommendForSeat(
       listings[0]!,
@@ -433,7 +459,7 @@ describe('recommendForSeat', () => {
       listings,
       'USD',
       ['s1'],
-      NOW
+      NOW,
     );
     expect(rec.recommendedPrice.isSome()).toBe(true);
     expect(rec.recommendedPrice.unwrap().price).toBe(125); // 120 + 5
@@ -473,7 +499,11 @@ describe('runPricingEngine – happy path', () => {
     expect(report.eventId).toBe('evt-1');
     expect(report.seats).toHaveLength(2);
     // median(100, 200) = 150; both seats get 150
-    expect(report.seats.every((s) => s.recommendedPrice.isSome() && s.recommendedPrice.unwrap().price === 150)).toBe(true);
+    expect(
+      report.seats.every(
+        (s) => s.recommendedPrice.isSome() && s.recommendedPrice.unwrap().price === 150,
+      ),
+    ).toBe(true);
   });
 
   it('stamps evaluatedAt with the injected nowMs', () => {
@@ -503,8 +533,12 @@ describe('runPricingEngine – currency mismatch', () => {
     const result = runPricingEngine(snapshot, makeCriteria(), NOW);
     expect(result.isErr()).toBe(true);
     expect(result.unwrapErr().type).toBe('CurrencyMismatchError');
-    expect((result.unwrapErr() as import('../errors.js').CurrencyMismatchError).eventCurrency).toBe('EUR');
-    expect((result.unwrapErr() as import('../errors.js').CurrencyMismatchError).criteriaCurrency).toBe('USD');
+    expect((result.unwrapErr() as import('../errors.js').CurrencyMismatchError).eventCurrency).toBe(
+      'EUR',
+    );
+    expect(
+      (result.unwrapErr() as import('../errors.js').CurrencyMismatchError).criteriaCurrency,
+    ).toBe('USD');
   });
 });
 
@@ -532,7 +566,11 @@ describe('edge case – non-finite prices', () => {
     ]);
     const report = runPricingEngine(makeMarket(listings), criteria, NOW).unwrap();
     // All seats share the same comparable pool; only 'good' is valid → median = 80
-    expect(report.seats.every((s) => s.recommendedPrice.isSome() && s.recommendedPrice.unwrap().price === 80)).toBe(true);
+    expect(
+      report.seats.every(
+        (s) => s.recommendedPrice.isSome() && s.recommendedPrice.unwrap().price === 80,
+      ),
+    ).toBe(true);
   });
 });
 
@@ -547,7 +585,11 @@ describe('edge case – mixed currency in listing pool', () => {
     ]);
     const report = runPricingEngine(makeMarket(listings), criteria, NOW).unwrap();
     // Only the $100 USD listing is used → recommended price = 100
-    expect(report.seats.every((s) => s.recommendedPrice.isSome() && s.recommendedPrice.unwrap().price === 100)).toBe(true);
+    expect(
+      report.seats.every(
+        (s) => s.recommendedPrice.isSome() && s.recommendedPrice.unwrap().price === 100,
+      ),
+    ).toBe(true);
   });
 });
 
@@ -556,7 +598,11 @@ describe('edge case – negative increment pushes below zero', () => {
     const criteria = makeCriteria([
       makeRule({ target: { type: 'zone', zoneIds: ['z1'] }, increment: -50 }),
     ]);
-    const report = runPricingEngine(makeMarket([makeListing({ zoneId: 'z1', price: 10 })]), criteria, NOW).unwrap();
+    const report = runPricingEngine(
+      makeMarket([makeListing({ zoneId: 'z1', price: 10 })]),
+      criteria,
+      NOW,
+    ).unwrap();
     expect(report.seats[0]!.recommendedPrice.unwrap().price).toBe(-40);
   });
 
@@ -564,7 +610,11 @@ describe('edge case – negative increment pushes below zero', () => {
     const criteria = makeCriteria([
       makeRule({ target: { type: 'zone', zoneIds: ['z1'] }, increment: -50, floor: 0 }),
     ]);
-    const report = runPricingEngine(makeMarket([makeListing({ zoneId: 'z1', price: 10 })]), criteria, NOW).unwrap();
+    const report = runPricingEngine(
+      makeMarket([makeListing({ zoneId: 'z1', price: 10 })]),
+      criteria,
+      NOW,
+    ).unwrap();
     expect(report.seats[0]!.recommendedPrice.unwrap().price).toBe(0);
   });
 });
@@ -572,9 +622,23 @@ describe('edge case – negative increment pushes below zero', () => {
 describe('edge case – multiple rules, partial failures', () => {
   it('falls through to second rule when first has empty sample', () => {
     const listings = [makeListing({ zoneId: 'z2', price: 300 })];
-    const primary = makeRule({ id: 'primary', label: 'Primary – no listings', target: { type: 'zone', zoneIds: ['z1'] }, increment: 0 });
-    const fallback = makeRule({ id: 'fallback', label: 'Fallback zone', target: { type: 'zone', zoneIds: ['z2'] }, increment: -10 });
-    const report = runPricingEngine(makeMarket(listings), makeCriteria([primary, fallback]), NOW).unwrap();
+    const primary = makeRule({
+      id: 'primary',
+      label: 'Primary – no listings',
+      target: { type: 'zone', zoneIds: ['z1'] },
+      increment: 0,
+    });
+    const fallback = makeRule({
+      id: 'fallback',
+      label: 'Fallback zone',
+      target: { type: 'zone', zoneIds: ['z2'] },
+      increment: -10,
+    });
+    const report = runPricingEngine(
+      makeMarket(listings),
+      makeCriteria([primary, fallback]),
+      NOW,
+    ).unwrap();
     expect(report.seats[0]!.recommendedPrice.unwrap().price).toBe(290); // 300 - 10
     expect(report.seats[0]!.outcomes[0]!.result.isErr()).toBe(true);
     expect(report.seats[0]!.outcomes[1]!.result.unwrap().price).toBe(290);
@@ -584,7 +648,11 @@ describe('edge case – multiple rules, partial failures', () => {
 describe('edge case – all rules fail', () => {
   it('recommendedPrice is None for a seat with no applicable rules', () => {
     const deadRule = makeRule({ target: { type: 'zone', zoneIds: ['zzz'] } });
-    const report = runPricingEngine(makeMarket([makeListing({ zoneId: 'z1' })]), makeCriteria([deadRule]), NOW).unwrap();
+    const report = runPricingEngine(
+      makeMarket([makeListing({ zoneId: 'z1' })]),
+      makeCriteria([deadRule]),
+      NOW,
+    ).unwrap();
     expect(report.seats[0]!.recommendedPrice.isNone()).toBe(true);
   });
 });
@@ -595,7 +663,12 @@ describe('edge case – stale listings + fresh fallback', () => {
       makeListing({ zoneId: 'z1', price: 200, listedAt: STALE }),
       makeListing({ zoneId: 'z1', price: 100, listedAt: RECENT }),
     ];
-    const freshOnly = makeRule({ id: 'fresh', target: { type: 'zone', zoneIds: ['z1'] }, maxAgeDays: 7, increment: 0 });
+    const freshOnly = makeRule({
+      id: 'fresh',
+      target: { type: 'zone', zoneIds: ['z1'] },
+      maxAgeDays: 7,
+      increment: 0,
+    });
     const report = runPricingEngine(makeMarket(listings), makeCriteria([freshOnly]), NOW).unwrap();
     // Only the RECENT listing (price=100) survives the age filter
     expect(report.seats[0]!.recommendedPrice.unwrap().price).toBe(100);
@@ -612,6 +685,10 @@ describe('edge case – section scope', () => {
       makeRule({ target: { type: 'section', sectionIds: ['sA'] }, increment: 0 }),
     ]);
     const report = runPricingEngine(makeMarket(listings), criteria, NOW).unwrap();
-    expect(report.seats.every((s) => s.recommendedPrice.isSome() && s.recommendedPrice.unwrap().price === 50)).toBe(true);
+    expect(
+      report.seats.every(
+        (s) => s.recommendedPrice.isSome() && s.recommendedPrice.unwrap().price === 50,
+      ),
+    ).toBe(true);
   });
 });

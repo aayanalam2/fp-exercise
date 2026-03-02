@@ -42,10 +42,7 @@ export const median = (values: readonly number[]): Option<number> => {
   if (values.length === 0) return Option.None;
   const sorted = R.sort(R.comparator(R.lt), values as number[]);
   const mid = Math.floor(sorted.length / 2);
-  const result =
-    sorted.length % 2 === 1
-      ? sorted[mid]!
-      : (sorted[mid - 1]! + sorted[mid]!) / 2;
+  const result = sorted.length % 2 === 1 ? sorted[mid]! : (sorted[mid - 1]! + sorted[mid]!) / 2;
   return Option.Some(result);
 };
 
@@ -59,8 +56,9 @@ export const median = (values: readonly number[]): Option<number> => {
  * The result may be negative if a large negative increment is applied; callers
  * that care should apply a floor afterwards.
  */
-export const applyIncrement: (increment: number) => (base: number) => number =
-  R.curry((increment: number, base: number): number => base + increment);
+export const applyIncrement: (increment: number) => (base: number) => number = R.curry(
+  (increment: number, base: number): number => base + increment,
+);
 
 // ---------------------------------------------------------------------------
 // Bounds
@@ -75,13 +73,16 @@ export const applyIncrement: (increment: number) => (base: number) => number =
  *   When floor > ceiling the ceiling takes precedence (price = ceiling) to
  *   avoid returning a nonsensical value; this is a defensive choice.
  */
-export const applyBounds: (floor: NumericBound, ceiling: NumericBound) => (price: number) => number =
-  R.curry((floor: NumericBound, ceiling: NumericBound, price: number): number => {
+export const applyBounds: (
+  floor: NumericBound,
+  ceiling: NumericBound,
+) => (price: number) => number = R.curry(
+  (floor: NumericBound, ceiling: NumericBound, price: number): number => {
     const floored = floor !== undefined ? Math.max(price, floor) : price;
-    const capped =
-      ceiling !== undefined ? Math.min(floored, ceiling) : floored;
+    const capped = ceiling !== undefined ? Math.min(floored, ceiling) : floored;
     return capped;
-  });
+  },
+);
 
 // ---------------------------------------------------------------------------
 // Compose: base → adjusted PriceResult
@@ -114,9 +115,7 @@ export const computePrice = (opts: {
   const baseResult = median(prices).toResult(PricingErrors.noComparables());
 
   return baseResult.map((base) => {
-    const adjusted = R.pipe(applyIncrement(increment), applyBounds(floor, ceiling))(
-      base
-    );
+    const adjusted = R.pipe(applyIncrement(increment), applyBounds(floor, ceiling))(base);
     return { price: adjusted };
   });
 };

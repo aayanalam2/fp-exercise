@@ -36,10 +36,7 @@ const isoToMs = (iso: string): Option<number> =>
 export const byCurrency =
   (currency: CurrencyCode) =>
   (listings: readonly Listing[]): Listing[] =>
-    R.filter(
-      (l) => l.listing.currency === currency,
-      listings as Listing[]
-    );
+    R.filter((l) => l.listing.currency === currency, listings as Listing[]);
 
 // ---------------------------------------------------------------------------
 // Valid-price filter
@@ -52,7 +49,7 @@ export const byCurrency =
 export const byValidPrice = (listings: readonly Listing[]): Listing[] =>
   R.filter(
     (l) => Number.isFinite(l.listing.listingPrice) && l.listing.listingPrice > 0,
-    listings as Listing[]
+    listings as Listing[],
   );
 
 // ---------------------------------------------------------------------------
@@ -76,7 +73,7 @@ export const byMaxAge =
         isoToMs(l.listing.listedAt)
           .map((ts) => ts >= cutoffMs)
           .unwrapOr(false),
-      listings as Listing[]
+      listings as Listing[],
     );
   };
 
@@ -95,7 +92,7 @@ export const byMaxAge =
 export const proximitySectionIds = (
   allSectionIds: readonly ID[],
   ofSectionId: ID,
-  radius: number
+  radius: number,
 ): ID[] => {
   const sorted = R.sort(R.comparator(R.lt), allSectionIds as ID[]);
   const idx = sorted.indexOf(ofSectionId);
@@ -113,7 +110,7 @@ export const proximitySectionIds = (
 type ScopeHandler<S extends ComparableScope> = (
   scope: S,
   allSectionIds: readonly ID[],
-  listings: Listing[]
+  listings: Listing[],
 ) => Listing[];
 
 const scopeHandlers: {
@@ -137,7 +134,7 @@ export const byScope =
     (scopeHandlers[scope.type] as ScopeHandler<ComparableScope>)(
       scope,
       allSectionIds,
-      listings as Listing[]
+      listings as Listing[],
     );
 
 // ---------------------------------------------------------------------------
@@ -164,5 +161,5 @@ export const buildComparableFilter = (opts: {
     byCurrency(opts.currency),
     byValidPrice,
     byMaxAge(opts.maxAgeDays, opts.nowMs),
-    byScope(opts.scope, opts.allSectionIds)
+    byScope(opts.scope, opts.allSectionIds),
   );

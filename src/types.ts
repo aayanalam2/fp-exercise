@@ -110,7 +110,7 @@ export type {
   EngineError,
   PricingError,
 } from './errors.js';
-import type { ComputeError, EngineError } from './errors.js';
+import type { ComputeError } from './errors.js';
 
 export interface PriceResult {
   price: number;
