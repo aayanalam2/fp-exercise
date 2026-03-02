@@ -72,6 +72,19 @@ export const applyBounds =
 // ---------------------------------------------------------------------------
 
 /**
+ * Guard: require the pool to meet the minimum sample threshold.
+ *
+ * Uses `mapOr` so the default (no constraint) is structurally explicit:
+ * `Option.None` maps to `Result.Ok(cs)` (no constraint active).
+ */
+const checkMinSample =
+  (minSample: Option<MinSample>) =>
+  (cs: NonEmptyArray<Listing>): Result<NonEmptyArray<Listing>, ComputeError> =>
+    minSample.mapOr(Result.Ok(cs), (ms) =>
+      cs.length >= ms ? Result.Ok(cs) : Result.Err(PricingErrors.insufficientSample(cs.length, ms)),
+    );
+
+/**
  * Given a pool of comparable listings (already filtered), compute a price:
  *
  *   median(prices) → + increment → clamp(floor, ceiling)
@@ -89,23 +102,11 @@ export const computePrice = (opts: {
 }): Result<PriceResult, ComputeError> => {
   const { comparables, increment, floor, ceiling, minSample } = opts;
 
-  const checkMinSample = (
-    cs: NonEmptyArray<Listing>,
-  ): Result<NonEmptyArray<Listing>, ComputeError> =>
-    minSample
-      .map(
-        (ms): Result<NonEmptyArray<Listing>, ComputeError> =>
-          cs.length >= ms
-            ? Result.Ok(cs)
-            : Result.Err(PricingErrors.insufficientSample(cs.length, ms)),
-      )
-      .unwrapOr(Result.Ok(cs));
-
   const toPrice = (base: number): PriceResult => ({
     price: R.pipe(applyIncrement(increment), applyBounds(floor, ceiling))(base),
   });
 
-  return checkMinSample(comparables)
+  return checkMinSample(minSample)(comparables)
     .map(extractPrices)
     .flatMap((prices) => median(prices).toResult(PricingErrors.noComparables()))
     .map(toPrice);

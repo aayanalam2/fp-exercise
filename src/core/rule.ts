@@ -20,7 +20,7 @@ import type {
   RuleOutcome,
   SeatRecommendation,
 } from '../domain/types.js';
-import { PricingErrors } from '../domain/errors.js';
+import { PricingErrors, ComputeError } from '../domain/errors.js';
 import { byCurrency, byValidPrice, byMaxAge } from './listing.js';
 import { computePrice } from './pricing.js';
 
@@ -38,12 +38,15 @@ export const proximitySectionIds = (
   allSectionIds: readonly ID[],
   ofSectionId: ID,
   radius: Radius,
-): ID[] => {
-  const sorted = R.sort(R.comparator(R.lt), allSectionIds as ID[]);
-  const idx = sorted.indexOf(ofSectionId);
-  if (idx === -1) return [];
-  return sorted.slice(Math.max(0, idx - radius), idx + radius + 1);
-};
+): ID[] =>
+  R.pipe(
+    (ids: readonly ID[]) => R.sort(R.comparator(R.lt), ids as ID[]),
+    (sorted: ID[]) =>
+      Option.fromNullable(sorted.indexOf(ofSectionId))
+        .filter((idx) => idx >= 0)
+        .map((idx) => sorted.slice(Math.max(0, idx - radius), idx + radius + 1))
+        .unwrapOr([]),
+  )(allSectionIds);
 
 // ---------------------------------------------------------------------------
 // Scope filter
@@ -64,10 +67,11 @@ const scopeHandlers: {
   section: (scope, _allSectionIds, listings) =>
     R.filter((l) => R.includes(l.sectionId, scope.sectionIds), listings),
 
-  proximity: (scope, allSectionIds, listings) => {
-    const nearbyIds = proximitySectionIds(allSectionIds, scope.ofSectionId, scope.radius);
-    return R.filter((l) => R.includes(l.sectionId, nearbyIds), listings);
-  },
+  proximity: (scope, allSectionIds, listings) =>
+    R.pipe(
+      () => proximitySectionIds(allSectionIds, scope.ofSectionId, scope.radius),
+      (nearbyIds: ID[]) => R.filter((l: Listing) => R.includes(l.sectionId, nearbyIds), listings),
+    )(),
 };
 
 /** Filter listings down to those matching the given `ComparableScope`. */
@@ -108,6 +112,15 @@ export const buildComparableFilter = (opts: {
 // ---------------------------------------------------------------------------
 
 /**
+ * Lift a listing array into a `Result`, failing with `NoComparablesError`
+ * when the pool is empty. This lets `evaluateRule` stay a single expression.
+ */
+const toNonEmpty = (cs: Listing[]): Result<NonEmptyArray<Listing>, ComputeError> =>
+  cs.length > 0
+    ? Result.Ok(cs as NonEmptyArray<Listing>)
+    : Result.Err(PricingErrors.noComparables());
+
+/**
  * Evaluate one `PricingRule` against the full listing pool.
  *
  * @returns `RuleOutcome` — `Ok` with a price, or `Err` with the reason.
@@ -119,33 +132,26 @@ export const evaluateRule = (
   allSectionIds: readonly ID[],
   nowMs: number,
 ): RuleOutcome => {
-  const comparables = buildComparableFilter({
-    currency,
-    scope: rule.target,
-    maxAgeDays: rule.maxAgeDays,
-    allSectionIds,
-    nowMs,
-  })(listings);
-
-  if (comparables.length === 0) {
-    return {
-      ruleId: rule.id,
-      ruleLabel: rule.label,
-      result: Result.Err(PricingErrors.noComparables()),
-    };
-  }
-
-  return {
-    ruleId: rule.id,
-    ruleLabel: rule.label,
-    result: computePrice({
-      comparables: comparables as NonEmptyArray<Listing>,
-      increment: rule.increment,
-      floor: rule.floor,
-      ceiling: rule.ceiling,
-      minSample: rule.minSample,
-    }),
-  };
+  const result = toNonEmpty(
+    buildComparableFilter({
+      currency,
+      scope: rule.target,
+      maxAgeDays: rule.maxAgeDays,
+      allSectionIds,
+      nowMs,
+    })(listings),
+  )
+    .mapErr((err) => err as ComputeError)
+    .flatMap((cs) =>
+      computePrice({
+        comparables: cs,
+        increment: rule.increment,
+        floor: rule.floor,
+        ceiling: rule.ceiling,
+        minSample: rule.minSample,
+      }),
+    );
+  return { ruleId: rule.id, ruleLabel: rule.label, result };
 };
 
 // ---------------------------------------------------------------------------
@@ -172,8 +178,9 @@ export const recommendForSeat = (
     rules as PricingRule[],
   );
 
-  const firstSuccess = R.find((o: RuleOutcome) => o.result.isOk(), outcomes);
-  const recommendedPrice = firstSuccess ? firstSuccess.result.toOption() : Option.None;
+  const recommendedPrice = Option.fromNullable(
+    R.find((o: RuleOutcome) => o.result.isOk(), outcomes),
+  ).flatMap((o) => o.result.toOption());
 
   return {
     seatId: listing.seatId,

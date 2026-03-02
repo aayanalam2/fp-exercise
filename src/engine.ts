@@ -28,10 +28,13 @@ import { recommendForSeat } from './core/rule.js';
 // ---------------------------------------------------------------------------
 
 /** Sorted, deduplicated list of every `sectionId` in the snapshot. */
-const collectSectionIds = (listings: readonly Listing[]): ID[] => {
-  const ids = R.map((l: Listing) => l.sectionId, listings as Listing[]);
-  return R.sort(R.comparator(R.lt), R.uniq(ids));
-};
+const collectSectionIds = (listings: readonly Listing[]): ID[] =>
+  R.pipe(
+    (ls: Listing[]) => R.map((l: Listing) => l.sectionId, ls),
+    R.uniq,
+    R.sort(R.comparator(R.lt)),
+    (ids) => ids as ID[],
+  )(listings as Listing[]);
 
 /** Ensure criteria currency matches the event currency. */
 const validateCurrency = (

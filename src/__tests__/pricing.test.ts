@@ -17,6 +17,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
+import { faker } from '@faker-js/faker';
 import { Option } from '@carbonteq/fp';
 import type { NonEmptyArray } from 'ramda';
 import type { Listing, MarketSnapshot, Criteria, PricingRule, ComparableScope } from '../index.js';
@@ -98,15 +99,15 @@ const makeListing = (overrides: ListingOverrides = {}): Listing => ({
   zoneId: id(overrides.zoneId ?? 'z1'),
   sectionId: id(overrides.sectionId ?? 's1'),
   seatId: id(overrides.seatId ?? 'seat-1'),
-  zoneLabel: 'Zone A',
+  zoneLabel: faker.word.words(2),
   zoneName: Option.None,
-  sectionLabel: 'Section 101',
+  sectionLabel: faker.word.words(2),
   sectionName: Option.None,
-  seatNumber: '1',
+  seatNumber: faker.number.int({ min: 1, max: 999 }).toString(),
   seatLabel: Option.None,
   fullName: Option.None,
   listing: {
-    listingPrice: overrides.price ?? 100,
+    listingPrice: overrides.price ?? faker.number.float({ min: 10, max: 500, fractionDigits: 2 }),
     listedAt: isoDate(overrides.listedAt ?? RECENT),
     currency: ccy(overrides.currency ?? 'USD'),
     quantity: Option.None,
@@ -117,9 +118,9 @@ const makeListing = (overrides: ListingOverrides = {}): Listing => ({
 const makeMarket = (listings: Listing[]): MarketSnapshot => ({
   event: {
     eventId: id('evt-1'),
-    name: 'Test Event',
-    venue: 'Test Arena',
-    dateISO: isoDate('2026-03-15'),
+    name: faker.company.name(),
+    venue: faker.location.city(),
+    dateISO: isoDate(faker.date.future({ years: 1 }).toISOString()),
     currency: ccy('USD'),
   },
   listings,
@@ -141,7 +142,7 @@ const isoDate = (s: string) => ISODateString.create(s).unwrap();
 
 const makeRule = (overrides: RuleOverrides = {}): PricingRule => ({
   id: id(overrides.id ?? 'r1'),
-  label: lbl(overrides.label ?? 'Default rule'),
+  label: lbl(overrides.label ?? faker.word.words(3)),
   target: toScope(overrides.target ?? { type: 'zone', zoneIds: ['z1'] }),
   increment: inc(overrides.increment ?? 0),
   floor: overrides.floor !== undefined ? Option.Some(fl(overrides.floor)) : Option.None,
