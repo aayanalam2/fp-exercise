@@ -11,6 +11,8 @@
  * Types defined here:
  *
  *   ID              – non-empty string identifier
+ *   Label           – non-empty human-readable display string
+ *   ISODateString   – parseable ISO-8601 date/datetime string
  *   SignedIncrement – finite number (pricing delta; may be negative)
  *   Radius          – non-negative integer (proximity scope radius)
  *   MinSample       – positive integer (minimum comparable count)
@@ -36,6 +38,19 @@ export const ID = createRefinedType(
   (_data, err) => new InvalidIDError(err),
 );
 export type ID = typeof ID.$infer;
+
+// ---------------------------------------------------------------------------
+// ISODateString
+// ---------------------------------------------------------------------------
+
+export class InvalidISODateStringError extends RefinedValidationError {}
+
+export const ISODateString = createRefinedType(
+  'ISODateString',
+  z.string().refine((s) => !isNaN(Date.parse(s)), 'Invalid ISO date string'),
+  (_data, err) => new InvalidISODateStringError(err),
+);
+export type ISODateString = typeof ISODateString.$infer;
 
 // ---------------------------------------------------------------------------
 // SignedIncrement
@@ -114,6 +129,19 @@ export const Ceiling = createRefinedType(
   (_data, err) => new InvalidCeilingError(err),
 );
 export type Ceiling = typeof Ceiling.$infer;
+
+// ---------------------------------------------------------------------------
+// Label
+// ---------------------------------------------------------------------------
+
+export class InvalidLabelError extends RefinedValidationError {}
+
+export const Label = createRefinedType(
+  'Label',
+  z.string().min(1),
+  (_data, err) => new InvalidLabelError(err),
+);
+export type Label = typeof Label.$infer;
 
 // ---------------------------------------------------------------------------
 // CurrencyCode

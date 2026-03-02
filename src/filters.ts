@@ -6,8 +6,15 @@
  */
 
 import * as R from 'ramda';
-import { Option } from '@carbonteq/fp';
-import type { Listing, ComparableScope, ID, CurrencyCode, MaxAgeDays, Radius } from './types.js';
+import type {
+  Listing,
+  ComparableScope,
+  ID,
+  CurrencyCode,
+  MaxAgeDays,
+  Radius,
+  ISODateString,
+} from './types.js';
 
 // ---------------------------------------------------------------------------
 // Internal helpers
@@ -19,11 +26,10 @@ import type { Listing, ComparableScope, ID, CurrencyCode, MaxAgeDays, Radius } f
 const MS_PER_DAY = 86_400_000 as const;
 
 /**
- * Parse an ISO-8601 date string to a UTC timestamp (ms).
- * Returns `Option.None` if the string is unparseable.
+ * Parse a validated ISO-8601 date string to a UTC timestamp (ms).
+ * Because `ISODateString` is always parseable, this always returns a number.
  */
-const isoToMs = (iso: string): Option<number> =>
-  Option.fromPredicate(Date.parse(iso), Number.isFinite);
+const isoToMs = (iso: ISODateString): number => Date.parse(iso);
 
 // ---------------------------------------------------------------------------
 // Currency filter
@@ -68,13 +74,7 @@ export const byMaxAge =
   (listings: readonly Listing[]): Listing[] => {
     if (maxAgeDays === undefined) return listings as Listing[];
     const cutoffMs = nowMs - maxAgeDays * MS_PER_DAY;
-    return R.filter(
-      (l) =>
-        isoToMs(l.listing.listedAt)
-          .map((ts) => ts >= cutoffMs)
-          .unwrapOr(false),
-      listings as Listing[],
-    );
+    return R.filter((l) => isoToMs(l.listing.listedAt) >= cutoffMs, listings as Listing[]);
   };
 
 // ---------------------------------------------------------------------------

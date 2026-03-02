@@ -22,6 +22,7 @@ import type {
   ID,
 } from './types.js';
 import { recommendForSeat } from './rule.js';
+import { ISODateString } from './types.js';
 
 // ---------------------------------------------------------------------------
 // Helper: collect distinct section IDs from a snapshot
@@ -101,7 +102,7 @@ export const runPricingEngine = (
     return {
       criteriaId: criteria.criteriaId,
       eventId: snapshot.event.eventId,
-      evaluatedAt: new Date(nowMs).toISOString(),
+      evaluatedAt: ISODateString.create(new Date(nowMs).toISOString()).unwrap(),
       seats,
     };
   });

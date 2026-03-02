@@ -5,6 +5,8 @@
 export type Unit = void;
 export {
   ID,
+  Label,
+  ISODateString,
   SignedIncrement,
   Radius,
   MinSample,
@@ -13,6 +15,8 @@ export {
   Ceiling,
   CurrencyCode,
   InvalidIDError,
+  InvalidLabelError,
+  InvalidISODateStringError,
   InvalidSignedIncrementError,
   InvalidRadiusError,
   InvalidMinSampleError,
@@ -23,6 +27,8 @@ export {
 } from './refined.js';
 import type {
   ID,
+  Label,
+  ISODateString,
   Radius,
   SignedIncrement,
   MinSample,
@@ -42,7 +48,7 @@ import type {
  */
 export interface ListingSnapshot {
   listingPrice: number;
-  listedAt: string;
+  listedAt: ISODateString;
   currency: CurrencyCode;
   quantity?: number;
 }
@@ -51,7 +57,7 @@ export interface EventMeta {
   eventId: ID;
   name: string;
   venue: string;
-  dateISO: string;
+  dateISO: ISODateString;
   currency: CurrencyCode;
 }
 
@@ -97,7 +103,7 @@ export type ComparableScope =
 
 export interface PricingRule {
   id: ID;
-  label: string;
+  label: Label;
   /** Which listings count as comparables for this rule. */
   target: ComparableScope;
   /** Amount added to (or subtracted from) the median comparable price. */
@@ -147,7 +153,7 @@ export interface PriceResult {
  */
 export interface RuleOutcome {
   ruleId: ID;
-  ruleLabel: string;
+  ruleLabel: Label;
   result: Result<PriceResult, ComputeError>;
 }
 
@@ -169,6 +175,6 @@ export interface SeatRecommendation {
 export interface PricingReport {
   criteriaId: ID;
   eventId: ID;
-  evaluatedAt: string; // ISO-8601
+  evaluatedAt: ISODateString;
   seats: SeatRecommendation[];
 }

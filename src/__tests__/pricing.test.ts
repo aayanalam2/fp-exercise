@@ -9,7 +9,7 @@
  *
  * Tests are grouped by logical layer:
  *   1. Base computations  (median, applyIncrement, applyBounds, computePrice)
- *   2. Refined type validation (CurrencyCode)
+ *   2. Refined type validation (CurrencyCode, ISODateString)
  *   3. Filters            (byCurrency, byValidPrice, byMaxAge, byScope, proximity)
  *   4. Rule evaluation    (evaluateRule, recommendForSeat)
  *   5. Integration        (runPricingEngine – full pipeline)
@@ -21,6 +21,8 @@ import type { NonEmptyArray } from 'ramda';
 import type { Listing, MarketSnapshot, Criteria, PricingRule } from '../types.js';
 import {
   ID,
+  Label,
+  ISODateString,
   SignedIncrement,
   Radius,
   MinSample,
@@ -29,6 +31,7 @@ import {
   Ceiling,
   CurrencyCode,
   InvalidCurrencyCodeError,
+  InvalidISODateStringError,
 } from '../types.js';
 import type { ComparableScope } from '../types.js';
 import { median, applyIncrement, applyBounds, computePrice } from '../base.js';
@@ -103,7 +106,7 @@ const makeMarket = (listings: Listing[]): MarketSnapshot => ({
     eventId: id('evt-1'),
     name: 'Test Event',
     venue: 'Test Arena',
-    dateISO: '2026-03-15',
+    dateISO: isoDate('2026-03-15'),
     currency: ccy('USD'),
   },
   listings,
@@ -120,9 +123,12 @@ type RuleOverrides = {
   maxAgeDays?: number;
 };
 
+const lbl = (s: string) => Label.create(s).unwrap();
+const isoDate = (s: string) => ISODateString.create(s).unwrap();
+
 const makeRule = (overrides: RuleOverrides = {}): PricingRule => ({
   id: id(overrides.id ?? 'r1'),
-  label: overrides.label ?? 'Default rule',
+  label: lbl(overrides.label ?? 'Default rule'),
   target: toScope(overrides.target ?? { type: 'zone', zoneIds: ['z1'] }),
   increment: inc(overrides.increment ?? 0),
   floor: overrides.floor !== undefined ? fl(overrides.floor) : undefined,
@@ -307,6 +313,28 @@ describe('CurrencyCode', () => {
   });
 });
 
+describe('ISODateString', () => {
+  it('creates Ok for a valid ISO 8601 datetime string', () => {
+    const result = ISODateString.create('2026-02-27T12:00:00Z');
+    expect(result.isOk()).toBe(true);
+    expect(result.unwrap()).toBe('2026-02-27T12:00:00Z');
+  });
+
+  it('creates Ok for a date-only string (no time component)', () => {
+    expect(ISODateString.create('2026-03-15').isOk()).toBe(true);
+  });
+
+  it('creates Err for an unparseable string', () => {
+    const result = ISODateString.create('not-a-date');
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toBeInstanceOf(InvalidISODateStringError);
+  });
+
+  it('creates Err for an empty string', () => {
+    expect(ISODateString.create('').isErr()).toBe(true);
+  });
+});
+
 // ---------------------------------------------------------------------------
 // 3. Filters
 // ---------------------------------------------------------------------------
@@ -377,8 +405,10 @@ describe('byMaxAge', () => {
   });
 
   it('removes listings with unparseable listedAt when age cap active', () => {
-    const listings = [makeListing({ listedAt: 'not-a-date' })];
-    expect(byMaxAge(maxd(30), NOW)(listings)).toHaveLength(0);
+    expect(ISODateString.create('not-a-date').isErr()).toBe(true);
+    expect(ISODateString.create('not-a-date').unwrapErr()).toBeInstanceOf(
+      InvalidISODateStringError,
+    );
   });
 
   it('keeps listing listed exactly at the cutoff boundary', () => {

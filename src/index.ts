@@ -19,6 +19,8 @@ export { PricingErrors } from './errors.js';
 // Refined type validation errors
 export {
   InvalidIDError,
+  InvalidLabelError,
+  InvalidISODateStringError,
   InvalidSignedIncrementError,
   InvalidRadiusError,
   InvalidMinSampleError,
@@ -46,6 +48,8 @@ export type {
 // Refined branded types (values + types)
 export {
   ID,
+  Label,
+  ISODateString,
   SignedIncrement,
   Radius,
   MinSample,
