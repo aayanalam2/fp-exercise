@@ -33,10 +33,7 @@ export const median = (values: readonly number[]): Option<number> => {
   if (values.length === 0) return Option.None;
   const sorted = R.sort(R.comparator(R.lt), values as number[]);
   const mid = Math.floor(sorted.length / 2);
-  const result =
-    sorted.length % 2 === 1
-      ? sorted[mid]!
-      : (sorted[mid - 1]! + sorted[mid]!) / 2;
+  const result = sorted.length % 2 === 1 ? sorted[mid]! : (sorted[mid - 1]! + sorted[mid]!) / 2;
   return Option.Some(result);
 };
 
@@ -48,8 +45,9 @@ export const median = (values: readonly number[]): Option<number> => {
  * Add a signed increment to a base price.
  * The result may be negative; apply a floor afterwards if needed.
  */
-export const applyIncrement: (increment: number) => (base: number) => number =
-  R.curry((increment: number, base: number): number => base + increment);
+export const applyIncrement: (increment: number) => (base: number) => number = R.curry(
+  (increment: number, base: number): number => base + increment,
+);
 
 // ---------------------------------------------------------------------------
 // Bounds

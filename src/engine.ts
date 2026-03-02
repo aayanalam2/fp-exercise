@@ -39,9 +39,7 @@ const validateCurrency = (
   criteria: Criteria,
 ): Result<Unit, EngineError> => {
   if (snapshot.event.currency !== criteria.currency) {
-    return Result.Err(
-      PricingErrors.currencyMismatch(snapshot.event.currency, criteria.currency),
-    );
+    return Result.Err(PricingErrors.currencyMismatch(snapshot.event.currency, criteria.currency));
   }
   return Result.Ok(void 0);
 };

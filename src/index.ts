@@ -78,7 +78,13 @@ export type {
 // ---------------------------------------------------------------------------
 export { extractPrices, isoToMs, byCurrency, byValidPrice, byMaxAge } from './core/listing.js';
 export { median, applyIncrement, applyBounds, computePrice } from './core/pricing.js';
-export { proximitySectionIds, byScope, buildComparableFilter, evaluateRule, recommendForSeat } from './core/rule.js';
+export {
+  proximitySectionIds,
+  byScope,
+  buildComparableFilter,
+  evaluateRule,
+  recommendForSeat,
+} from './core/rule.js';
 
 // ---------------------------------------------------------------------------
 // Engine

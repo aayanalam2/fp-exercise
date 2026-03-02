@@ -59,6 +59,9 @@ export const byMaxAge =
     maxAgeDays
       .map((days) => {
         const cutoffMs = nowMs - days * MS_PER_DAY;
-        return R.filter((l: Listing) => isoToMs(l.listing.listedAt) >= cutoffMs, listings as Listing[]);
+        return R.filter(
+          (l: Listing) => isoToMs(l.listing.listedAt) >= cutoffMs,
+          listings as Listing[],
+        );
       })
       .unwrapOr(listings as Listing[]);
