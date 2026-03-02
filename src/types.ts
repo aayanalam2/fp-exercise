@@ -11,13 +11,25 @@ export {
   Radius,
   MinSample,
   MaxAgeDays,
+  Floor,
+  Ceiling,
   InvalidIDError,
   InvalidSignedIncrementError,
   InvalidRadiusError,
   InvalidMinSampleError,
   InvalidMaxAgeDaysError,
+  InvalidFloorError,
+  InvalidCeilingError,
 } from './refined.js';
-import type { ID, Radius, SignedIncrement, MinSample, MaxAgeDays } from './refined.js';
+import type {
+  ID,
+  Radius,
+  SignedIncrement,
+  MinSample,
+  MaxAgeDays,
+  Floor,
+  Ceiling,
+} from './refined.js';
 
 // ---------------------------------------------------------------------------
 // Market data
@@ -69,9 +81,6 @@ export interface MarketSnapshot {
 // ---------------------------------------------------------------------------
 // Pricing criteria
 // ---------------------------------------------------------------------------
-
-export type NumericBound = number | undefined;
-
 /**
  * Defines which comparable listings to pull when computing a base price.
  *
@@ -92,8 +101,8 @@ export interface PricingRule {
   target: ComparableScope;
   /** Amount added to (or subtracted from) the median comparable price. */
   increment: SignedIncrement;
-  floor?: NumericBound;
-  ceiling?: NumericBound;
+  floor?: Floor;
+  ceiling?: Ceiling;
   /** Minimum number of valid comparable listings required to produce a price. */
   minSample?: MinSample;
   /** Reject listings older than this many days relative to evaluation time. */

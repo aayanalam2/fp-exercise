@@ -18,7 +18,7 @@
 import { describe, it, expect } from 'vitest';
 import type { NonEmptyArray } from 'ramda';
 import type { Listing, MarketSnapshot, Criteria, PricingRule, CurrencyCode } from '../types.js';
-import { ID, SignedIncrement, Radius, MinSample, MaxAgeDays } from '../types.js';
+import { ID, SignedIncrement, Radius, MinSample, MaxAgeDays, Floor, Ceiling } from '../types.js';
 import type { ComparableScope } from '../types.js';
 import { median, applyIncrement, applyBounds, computePrice } from '../base.js';
 import { byCurrency, byValidPrice, byMaxAge, byScope, proximitySectionIds } from '../filters.js';
@@ -42,6 +42,8 @@ const inc = (n: number) => SignedIncrement.create(n).unwrap();
 const rad = (n: number) => Radius.create(n).unwrap();
 const mins = (n: number) => MinSample.create(n).unwrap();
 const maxd = (n: number) => MaxAgeDays.create(n).unwrap();
+const fl = (n: number) => Floor.create(n).unwrap();
+const ceil = (n: number) => Ceiling.create(n).unwrap();
 
 // ---------------------------------------------------------------------------
 // Scope conversion helper
@@ -111,8 +113,8 @@ const makeRule = (overrides: RuleOverrides = {}): PricingRule => ({
   label: overrides.label ?? 'Default rule',
   target: toScope(overrides.target ?? { type: 'zone', zoneIds: ['z1'] }),
   increment: inc(overrides.increment ?? 0),
-  floor: overrides.floor,
-  ceiling: overrides.ceiling,
+  floor: overrides.floor !== undefined ? fl(overrides.floor) : undefined,
+  ceiling: overrides.ceiling !== undefined ? ceil(overrides.ceiling) : undefined,
   minSample: overrides.minSample !== undefined ? mins(overrides.minSample) : undefined,
   maxAgeDays: overrides.maxAgeDays !== undefined ? maxd(overrides.maxAgeDays) : undefined,
 });
@@ -167,30 +169,30 @@ describe('applyIncrement', () => {
 
 describe('applyBounds', () => {
   it('clamps to floor when price is below floor', () => {
-    expect(applyBounds(50, undefined)(30)).toBe(50);
+    expect(applyBounds(fl(50), undefined)(30)).toBe(50);
   });
 
   it('does not change price already above floor', () => {
-    expect(applyBounds(50, undefined)(80)).toBe(80);
+    expect(applyBounds(fl(50), undefined)(80)).toBe(80);
   });
 
   it('clamps to ceiling when price is above ceiling', () => {
-    expect(applyBounds(undefined, 200)(250)).toBe(200);
+    expect(applyBounds(undefined, ceil(200))(250)).toBe(200);
   });
 
   it('does not change price already below ceiling', () => {
-    expect(applyBounds(undefined, 200)(150)).toBe(150);
+    expect(applyBounds(undefined, ceil(200))(150)).toBe(150);
   });
 
   it('applies both floor and ceiling together', () => {
-    expect(applyBounds(50, 200)(300)).toBe(200);
-    expect(applyBounds(50, 200)(10)).toBe(50);
-    expect(applyBounds(50, 200)(100)).toBe(100);
+    expect(applyBounds(fl(50), ceil(200))(300)).toBe(200);
+    expect(applyBounds(fl(50), ceil(200))(10)).toBe(50);
+    expect(applyBounds(fl(50), ceil(200))(100)).toBe(100);
   });
 
   it('ceiling wins when floor > ceiling (defensive clamp)', () => {
     // floor=200, ceiling=100 → floored=200 → capped to 100
-    expect(applyBounds(200, 100)(50)).toBe(100);
+    expect(applyBounds(fl(200), ceil(100))(50)).toBe(100);
   });
 
   it('returns price unchanged when both bounds are undefined', () => {
@@ -245,7 +247,7 @@ describe('computePrice', () => {
     const out = computePrice({
       comparables: [makeListing({ price: 100 })] as NonEmptyArray<Listing>,
       increment: -80,
-      floor: 50,
+      floor: fl(50),
       ceiling: undefined,
       minSample: undefined,
     });
@@ -259,7 +261,7 @@ describe('computePrice', () => {
       comparables: [makeListing({ price: 100 })] as NonEmptyArray<Listing>,
       increment: 100,
       floor: undefined,
-      ceiling: 150,
+      ceiling: ceil(150),
       minSample: undefined,
     });
     expect(out.isOk()).toBe(true);

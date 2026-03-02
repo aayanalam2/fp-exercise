@@ -15,6 +15,8 @@
  *   Radius          – non-negative integer (proximity scope radius)
  *   MinSample       – positive integer (minimum comparable count)
  *   MaxAgeDays      – positive finite number (listing age cap in days)
+ *   Floor           – finite number (price lower bound)
+ *   Ceiling         – finite number (price upper bound)
  */
 
 import { createRefinedType, RefinedValidationError } from '@carbonteq/refined-type';
@@ -84,3 +86,29 @@ export const MaxAgeDays = createRefinedType(
   (_data, err) => new InvalidMaxAgeDaysError(err),
 );
 export type MaxAgeDays = typeof MaxAgeDays.$infer;
+
+// ---------------------------------------------------------------------------
+// Floor
+// ---------------------------------------------------------------------------
+
+export class InvalidFloorError extends RefinedValidationError {}
+
+export const Floor = createRefinedType(
+  'Floor',
+  z.number(),
+  (_data, err) => new InvalidFloorError(err),
+);
+export type Floor = typeof Floor.$infer;
+
+// ---------------------------------------------------------------------------
+// Ceiling
+// ---------------------------------------------------------------------------
+
+export class InvalidCeilingError extends RefinedValidationError {}
+
+export const Ceiling = createRefinedType(
+  'Ceiling',
+  z.number(),
+  (_data, err) => new InvalidCeilingError(err),
+);
+export type Ceiling = typeof Ceiling.$infer;

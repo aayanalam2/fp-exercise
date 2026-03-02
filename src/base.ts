@@ -10,7 +10,7 @@
 
 import * as R from 'ramda';
 import { Result, Option } from '@carbonteq/fp';
-import type { Listing, NumericBound, PriceResult } from './types.js';
+import type { Listing, PriceResult, Floor, Ceiling } from './types.js';
 import { PricingErrors } from './errors.js';
 import type { ComputeError } from './errors.js';
 import { NonEmptyArray } from 'ramda';
@@ -74,10 +74,10 @@ export const applyIncrement: (increment: number) => (base: number) => number = R
  *   avoid returning a nonsensical value; this is a defensive choice.
  */
 export const applyBounds: (
-  floor: NumericBound,
-  ceiling: NumericBound,
+  floor: Floor | undefined,
+  ceiling: Ceiling | undefined,
 ) => (price: number) => number = R.curry(
-  (floor: NumericBound, ceiling: NumericBound, price: number): number => {
+  (floor: Floor | undefined, ceiling: Ceiling | undefined, price: number): number => {
     const floored = floor !== undefined ? Math.max(price, floor) : price;
     const capped = ceiling !== undefined ? Math.min(floored, ceiling) : floored;
     return capped;
@@ -101,8 +101,8 @@ export const applyBounds: (
 export const computePrice = (opts: {
   comparables: NonEmptyArray<Listing>;
   increment: number;
-  floor: NumericBound;
-  ceiling: NumericBound;
+  floor: Floor | undefined;
+  ceiling: Ceiling | undefined;
   minSample: number | undefined;
 }): Result<PriceResult, ComputeError> => {
   const { comparables, increment, floor, ceiling, minSample } = opts;

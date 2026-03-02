@@ -23,6 +23,8 @@ export {
   InvalidRadiusError,
   InvalidMinSampleError,
   InvalidMaxAgeDaysError,
+  InvalidFloorError,
+  InvalidCeilingError,
 } from './refined.js';
 
 // Types
@@ -32,7 +34,6 @@ export type {
   EventMeta,
   Listing,
   MarketSnapshot,
-  NumericBound,
   ComparableScope,
   PricingRule,
   Criteria,
@@ -43,7 +44,7 @@ export type {
 } from './types.js';
 
 // Refined branded types (values + types)
-export { ID, SignedIncrement, Radius, MinSample, MaxAgeDays } from './refined.js';
+export { ID, SignedIncrement, Radius, MinSample, MaxAgeDays, Floor, Ceiling } from './refined.js';
 
 // Engine
 export { runPricingEngine } from './engine.js';
