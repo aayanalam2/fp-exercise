@@ -3,8 +3,6 @@
 // ---------------------------------------------------------------------------
 
 export type Unit = void;
-import type { CurrencyCode } from 'currency-codes-ts/dist/types';
-export type { CurrencyCode } from 'currency-codes-ts/dist/types';
 export {
   ID,
   SignedIncrement,
@@ -13,6 +11,7 @@ export {
   MaxAgeDays,
   Floor,
   Ceiling,
+  CurrencyCode,
   InvalidIDError,
   InvalidSignedIncrementError,
   InvalidRadiusError,
@@ -20,6 +19,7 @@ export {
   InvalidMaxAgeDaysError,
   InvalidFloorError,
   InvalidCeilingError,
+  InvalidCurrencyCodeError,
 } from './refined.js';
 import type {
   ID,
@@ -29,6 +29,7 @@ import type {
   MaxAgeDays,
   Floor,
   Ceiling,
+  CurrencyCode,
 } from './refined.js';
 
 // ---------------------------------------------------------------------------

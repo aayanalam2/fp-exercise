@@ -17,8 +17,17 @@
 
 import { describe, it, expect } from 'vitest';
 import type { NonEmptyArray } from 'ramda';
-import type { Listing, MarketSnapshot, Criteria, PricingRule, CurrencyCode } from '../types.js';
-import { ID, SignedIncrement, Radius, MinSample, MaxAgeDays, Floor, Ceiling } from '../types.js';
+import type { Listing, MarketSnapshot, Criteria, PricingRule } from '../types.js';
+import {
+  ID,
+  SignedIncrement,
+  Radius,
+  MinSample,
+  MaxAgeDays,
+  Floor,
+  Ceiling,
+  CurrencyCode,
+} from '../types.js';
 import type { ComparableScope } from '../types.js';
 import { median, applyIncrement, applyBounds, computePrice } from '../base.js';
 import { byCurrency, byValidPrice, byMaxAge, byScope, proximitySectionIds } from '../filters.js';
@@ -44,6 +53,7 @@ const mins = (n: number) => MinSample.create(n).unwrap();
 const maxd = (n: number) => MaxAgeDays.create(n).unwrap();
 const fl = (n: number) => Floor.create(n).unwrap();
 const ceil = (n: number) => Ceiling.create(n).unwrap();
+const ccy = (s: string) => CurrencyCode.create(s).unwrap();
 
 // ---------------------------------------------------------------------------
 // Scope conversion helper
@@ -66,7 +76,7 @@ type ListingOverrides = {
   zoneId?: string;
   sectionId?: string;
   price?: number;
-  currency?: CurrencyCode;
+  currency?: string;
   listedAt?: string;
 };
 
@@ -81,7 +91,7 @@ const makeListing = (overrides: ListingOverrides = {}): Listing => ({
   listing: {
     listingPrice: overrides.price ?? 100,
     listedAt: overrides.listedAt ?? RECENT,
-    currency: overrides.currency ?? 'USD',
+    currency: ccy(overrides.currency ?? 'USD'),
   },
 });
 
@@ -92,7 +102,7 @@ const makeMarket = (listings: Listing[]): MarketSnapshot => ({
     name: 'Test Event',
     venue: 'Test Arena',
     dateISO: '2026-03-15',
-    currency: 'USD',
+    currency: ccy('USD'),
   },
   listings,
 });
@@ -121,7 +131,7 @@ const makeRule = (overrides: RuleOverrides = {}): PricingRule => ({
 
 const makeCriteria = (rules: PricingRule[] = [makeRule()]): Criteria => ({
   criteriaId: id('c1'),
-  currency: 'USD',
+  currency: ccy('USD'),
   rules,
 });
 
@@ -280,13 +290,13 @@ describe('byCurrency', () => {
       makeListing({ currency: 'EUR' }),
       makeListing({ currency: 'GBP' }),
     ];
-    const result = byCurrency('USD')(listings);
+    const result = byCurrency(ccy('USD'))(listings);
     expect(result).toHaveLength(1);
   });
 
   it('returns empty when no currency matches', () => {
     const listings = [makeListing({ currency: 'GBP' })];
-    expect(byCurrency('USD')(listings)).toHaveLength(0);
+    expect(byCurrency(ccy('USD'))(listings)).toHaveLength(0);
   });
 });
 
@@ -432,7 +442,7 @@ describe('evaluateRule', () => {
       makeListing({ zoneId: 'z1', price: 200 }),
     ];
     const rule = makeRule({ target: { type: 'zone', zoneIds: ['z1'] }, increment: 10 });
-    const outcome = evaluateRule(rule, listings, 'USD', [id('s1')], NOW);
+    const outcome = evaluateRule(rule, listings, ccy('USD'), [id('s1')], NOW);
     // median(100, 200) = 150 + 10 = 160
     expect(outcome.result.isOk()).toBe(true);
     expect(outcome.result.unwrap().price).toBe(160);
@@ -442,7 +452,7 @@ describe('evaluateRule', () => {
   it('returns Err when no comparables in target zone', () => {
     const listings = [makeListing({ zoneId: 'z2', price: 100 })];
     const rule = makeRule({ target: { type: 'zone', zoneIds: ['z1'] } });
-    const outcome = evaluateRule(rule, listings, 'USD', [id('s1')], NOW);
+    const outcome = evaluateRule(rule, listings, ccy('USD'), [id('s1')], NOW);
     expect(outcome.result.isErr()).toBe(true);
   });
 
@@ -452,7 +462,7 @@ describe('evaluateRule', () => {
       target: { type: 'zone', zoneIds: ['z1'] },
       minSample: 3,
     });
-    const outcome = evaluateRule(rule, listings, 'USD', [id('s1')], NOW);
+    const outcome = evaluateRule(rule, listings, ccy('USD'), [id('s1')], NOW);
     expect(outcome.result.isErr()).toBe(true);
     expect(outcome.result.unwrapErr().type).toBe('InsufficientSampleError');
     expect(
@@ -472,7 +482,7 @@ describe('evaluateRule', () => {
       target: { type: 'zone', zoneIds: ['z1'] },
       maxAgeDays: 7,
     });
-    const outcome = evaluateRule(rule, staleListings, 'USD', [id('s1')], NOW);
+    const outcome = evaluateRule(rule, staleListings, ccy('USD'), [id('s1')], NOW);
     expect(outcome.result.isErr()).toBe(true);
     expect(outcome.result.unwrapErr().type).toBe('NoComparablesError');
   });
@@ -480,7 +490,7 @@ describe('evaluateRule', () => {
   it('filters out non-USD listings when criteria currency is USD', () => {
     const listings = [makeListing({ zoneId: 'z1', price: 100, currency: 'EUR' })];
     const rule = makeRule({ target: { type: 'zone', zoneIds: ['z1'] } });
-    const outcome = evaluateRule(rule, listings, 'USD', [id('s1')], NOW);
+    const outcome = evaluateRule(rule, listings, ccy('USD'), [id('s1')], NOW);
     expect(outcome.result.isErr()).toBe(true);
   });
 });
@@ -502,7 +512,7 @@ describe('recommendForSeat', () => {
       listings[0]!,
       [ruleNoMatch, ruleMatch],
       listings,
-      'USD',
+      ccy('USD'),
       [id('s1')],
       NOW,
     );
@@ -517,7 +527,14 @@ describe('recommendForSeat', () => {
   it('returns None recommendedPrice when all rules fail', () => {
     const listings = [makeListing({ zoneId: 'z99' })];
     const ruleNoMatch = makeRule({ target: { type: 'zone', zoneIds: ['z1'] } });
-    const rec = recommendForSeat(listings[0]!, [ruleNoMatch], listings, 'USD', [id('s1')], NOW);
+    const rec = recommendForSeat(
+      listings[0]!,
+      [ruleNoMatch],
+      listings,
+      ccy('USD'),
+      [id('s1')],
+      NOW,
+    );
     expect(rec.recommendedPrice.isNone()).toBe(true);
   });
 });
@@ -573,7 +590,7 @@ describe('runPricingEngine – currency mismatch', () => {
   it('returns Err when event currency ≠ criteria currency', () => {
     const snapshot: MarketSnapshot = {
       ...makeMarket([]),
-      event: { ...makeMarket([]).event, currency: 'EUR' },
+      event: { ...makeMarket([]).event, currency: ccy('EUR') },
     };
     const result = runPricingEngine(snapshot, makeCriteria(), NOW);
     expect(result.isErr()).toBe(true);

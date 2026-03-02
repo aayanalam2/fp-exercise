@@ -22,7 +22,7 @@
  * The criteria currency does not match the event currency in the snapshot.
  * The caller must normalize currencies before invoking the engine.
  */
-import type { CurrencyCode } from 'currency-codes-ts/dist/types';
+import type { CurrencyCode } from './refined.js';
 
 export interface CurrencyMismatchError {
   readonly type: 'CurrencyMismatchError';

@@ -25,11 +25,11 @@ export {
   InvalidMaxAgeDaysError,
   InvalidFloorError,
   InvalidCeilingError,
+  InvalidCurrencyCodeError,
 } from './refined.js';
 
 // Types
 export type {
-  CurrencyCode,
   ListingSnapshot,
   EventMeta,
   Listing,
@@ -44,7 +44,16 @@ export type {
 } from './types.js';
 
 // Refined branded types (values + types)
-export { ID, SignedIncrement, Radius, MinSample, MaxAgeDays, Floor, Ceiling } from './refined.js';
+export {
+  ID,
+  SignedIncrement,
+  Radius,
+  MinSample,
+  MaxAgeDays,
+  Floor,
+  Ceiling,
+  CurrencyCode,
+} from './refined.js';
 
 // Engine
 export { runPricingEngine } from './engine.js';

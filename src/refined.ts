@@ -17,10 +17,12 @@
  *   MaxAgeDays      – positive finite number (listing age cap in days)
  *   Floor           – finite number (price lower bound)
  *   Ceiling         – finite number (price upper bound)
+ *   CurrencyCode    – validated ISO 4217 currency code string
  */
 
 import { createRefinedType, RefinedValidationError } from '@carbonteq/refined-type';
 import * as z from 'zod/v4';
+import { code as lookupCurrency } from 'currency-codes-ts';
 
 // ---------------------------------------------------------------------------
 // ID
@@ -112,3 +114,16 @@ export const Ceiling = createRefinedType(
   (_data, err) => new InvalidCeilingError(err),
 );
 export type Ceiling = typeof Ceiling.$infer;
+
+// ---------------------------------------------------------------------------
+// CurrencyCode
+// ---------------------------------------------------------------------------
+
+export class InvalidCurrencyCodeError extends RefinedValidationError {}
+
+export const CurrencyCode = createRefinedType(
+  'CurrencyCode',
+  z.string().refine((s) => lookupCurrency(s) !== undefined, 'Invalid ISO 4217 currency code'),
+  (_data, err) => new InvalidCurrencyCodeError(err),
+);
+export type CurrencyCode = typeof CurrencyCode.$infer;
