@@ -9,10 +9,11 @@
  *
  * Tests are grouped by logical layer:
  *   1. Base computations  (median, applyIncrement, applyBounds, computePrice)
- *   2. Filters            (byCurrency, byValidPrice, byMaxAge, byScope, proximity)
- *   3. Rule evaluation    (evaluateRule, recommendForSeat)
- *   4. Engine integration (runPricingEngine – full pipeline)
- *   5. Edge cases         (empty pool, minSample, stale, bad currency, ±Inf/NaN)
+ *   2. Refined type validation (CurrencyCode)
+ *   3. Filters            (byCurrency, byValidPrice, byMaxAge, byScope, proximity)
+ *   4. Rule evaluation    (evaluateRule, recommendForSeat)
+ *   5. Integration        (runPricingEngine – full pipeline)
+ *   6. Edge cases         (empty pool, minSample, stale, bad currency, ±Inf/NaN)
  */
 
 import { describe, it, expect } from 'vitest';
@@ -27,6 +28,7 @@ import {
   Floor,
   Ceiling,
   CurrencyCode,
+  InvalidCurrencyCodeError,
 } from '../types.js';
 import type { ComparableScope } from '../types.js';
 import { median, applyIncrement, applyBounds, computePrice } from '../base.js';
@@ -280,7 +282,33 @@ describe('computePrice', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 2. Filters
+// 2. Refined type validation
+// ---------------------------------------------------------------------------
+
+describe('CurrencyCode', () => {
+  it('creates Ok for a valid ISO 4217 code', () => {
+    const result = CurrencyCode.create('USD');
+    expect(result.isOk()).toBe(true);
+    expect(result.unwrap()).toBe('USD');
+  });
+
+  it('creates Err for an unrecognised currency string', () => {
+    const result = CurrencyCode.create('INVALID');
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toBeInstanceOf(InvalidCurrencyCodeError);
+  });
+
+  it('creates Err for an empty string', () => {
+    expect(CurrencyCode.create('').isErr()).toBe(true);
+  });
+
+  it('creates Err for a numeric string', () => {
+    expect(CurrencyCode.create('840').isErr()).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 3. Filters
 // ---------------------------------------------------------------------------
 
 describe('byCurrency', () => {
@@ -432,7 +460,7 @@ describe('byScope – proximity', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 3. Rule evaluation
+// 4. Rule evaluation
 // ---------------------------------------------------------------------------
 
 describe('evaluateRule', () => {
@@ -540,7 +568,7 @@ describe('recommendForSeat', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 4. Integration – runPricingEngine
+// 5. Integration – runPricingEngine
 // ---------------------------------------------------------------------------
 
 describe('runPricingEngine – happy path', () => {
@@ -605,7 +633,7 @@ describe('runPricingEngine – currency mismatch', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 5. Edge cases
+// 6. Edge cases
 // ---------------------------------------------------------------------------
 
 describe('edge case – empty snapshot', () => {
