@@ -1,5 +1,5 @@
 /**
- * @module refined
+ * @module primitives
  *
  * Branded, runtime-validated domain primitive types built with
  * `@carbonteq/refined-type` + Zod.

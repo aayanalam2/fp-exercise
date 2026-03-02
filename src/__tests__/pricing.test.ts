@@ -19,7 +19,7 @@
 import { describe, it, expect } from 'vitest';
 import { Option } from '@carbonteq/fp';
 import type { NonEmptyArray } from 'ramda';
-import type { Listing, MarketSnapshot, Criteria, PricingRule } from '../types.js';
+import type { Listing, MarketSnapshot, Criteria, PricingRule, ComparableScope } from '../index.js';
 import {
   ID,
   Label,
@@ -33,12 +33,19 @@ import {
   CurrencyCode,
   InvalidCurrencyCodeError,
   InvalidISODateStringError,
-} from '../types.js';
-import type { ComparableScope } from '../types.js';
-import { median, applyIncrement, applyBounds, computePrice } from '../base.js';
-import { byCurrency, byValidPrice, byMaxAge, byScope, proximitySectionIds } from '../filters.js';
-import { evaluateRule, recommendForSeat } from '../rule.js';
-import { runPricingEngine } from '../engine.js';
+  median,
+  applyIncrement,
+  applyBounds,
+  computePrice,
+  byCurrency,
+  byValidPrice,
+  byMaxAge,
+  byScope,
+  proximitySectionIds,
+  evaluateRule,
+  recommendForSeat,
+  runPricingEngine,
+} from '../index.js';
 
 // ---------------------------------------------------------------------------
 // Test fixtures
@@ -264,8 +271,8 @@ describe('computePrice', () => {
     });
     expect(out.isErr()).toBe(true);
     expect(out.unwrapErr().type).toBe('InsufficientSampleError');
-    expect((out.unwrapErr() as import('../errors.js').InsufficientSampleError).actual).toBe(1);
-    expect((out.unwrapErr() as import('../errors.js').InsufficientSampleError).required).toBe(3);
+    expect((out.unwrapErr() as import('../index.js').InsufficientSampleError).actual).toBe(1);
+    expect((out.unwrapErr() as import('../index.js').InsufficientSampleError).required).toBe(3);
   });
 
   it('applies floor after increment', () => {
@@ -532,10 +539,10 @@ describe('evaluateRule', () => {
     expect(outcome.result.isErr()).toBe(true);
     expect(outcome.result.unwrapErr().type).toBe('InsufficientSampleError');
     expect(
-      (outcome.result.unwrapErr() as import('../errors.js').InsufficientSampleError).actual,
+      (outcome.result.unwrapErr() as import('../index.js').InsufficientSampleError).actual,
     ).toBe(1);
     expect(
-      (outcome.result.unwrapErr() as import('../errors.js').InsufficientSampleError).required,
+      (outcome.result.unwrapErr() as import('../index.js').InsufficientSampleError).required,
     ).toBe(3);
   });
 
@@ -661,11 +668,11 @@ describe('runPricingEngine – currency mismatch', () => {
     const result = runPricingEngine(snapshot, makeCriteria(), NOW);
     expect(result.isErr()).toBe(true);
     expect(result.unwrapErr().type).toBe('CurrencyMismatchError');
-    expect((result.unwrapErr() as import('../errors.js').CurrencyMismatchError).eventCurrency).toBe(
+    expect((result.unwrapErr() as import('../index.js').CurrencyMismatchError).eventCurrency).toBe(
       'EUR',
     );
     expect(
-      (result.unwrapErr() as import('../errors.js').CurrencyMismatchError).criteriaCurrency,
+      (result.unwrapErr() as import('../index.js').CurrencyMismatchError).criteriaCurrency,
     ).toBe('USD');
   });
 });

@@ -1,5 +1,5 @@
 /**
- * @module errors
+ * @module pricing.errors
  *
  * Strongly-typed, exhaustive error hierarchy for the pricing engine.
  *
@@ -14,6 +14,8 @@
  * • `PricingError`  – full union (ComputeError | EngineError)
  */
 
+import type { CurrencyCode } from './primitives.js';
+
 // ---------------------------------------------------------------------------
 // Leaf error types
 // ---------------------------------------------------------------------------
@@ -22,8 +24,6 @@
  * The criteria currency does not match the event currency in the snapshot.
  * The caller must normalize currencies before invoking the engine.
  */
-import type { CurrencyCode } from './refined.js';
-
 export interface CurrencyMismatchError {
   readonly type: 'CurrencyMismatchError';
   /** ISO 4217 code from the event (e.g. "EUR"). */

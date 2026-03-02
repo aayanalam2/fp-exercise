@@ -3,79 +3,61 @@
  *
  * Top-level pricing engine.
  *
- * `runPricingEngine` is the single public entry point: it accepts a
- * `MarketSnapshot` + `Criteria` and returns a `PricingReport` containing a
- * recommendation for every seat in the snapshot.
+ * `runPricingEngine` is the single entry point: it accepts a `MarketSnapshot`
+ * + `Criteria` and returns a `PricingReport` with a recommendation per seat.
  */
 
 import * as R from 'ramda';
 import { Result } from '@carbonteq/fp';
-import { PricingErrors } from './errors.js';
-import type { EngineError } from './errors.js';
 import type {
+  Listing,
   MarketSnapshot,
   Criteria,
   PricingReport,
   SeatRecommendation,
   Unit,
-  Listing,
-  ID,
-} from './types.js';
-import { recommendForSeat } from './rule.js';
-import { ISODateString } from './types.js';
+} from './domain/types.js';
+import type { EngineError } from './domain/errors.js';
+import type { ID } from './domain/primitives.js';
+import { PricingErrors } from './domain/errors.js';
+import { ISODateString } from './domain/primitives.js';
+import { recommendForSeat } from './core/rule.js';
 
 // ---------------------------------------------------------------------------
-// Helper: collect distinct section IDs from a snapshot
+// Helpers
 // ---------------------------------------------------------------------------
 
-/**
- * Returns a sorted, deduplicated list of every `sectionId` present in the
- * snapshot's listing pool.  Used by the `proximity` scope resolver.
- */
-
+/** Sorted, deduplicated list of every `sectionId` in the snapshot. */
 const collectSectionIds = (listings: readonly Listing[]): ID[] => {
   const ids = R.map((l: Listing) => l.sectionId, listings as Listing[]);
   return R.sort(R.comparator(R.lt), R.uniq(ids));
 };
 
-// ---------------------------------------------------------------------------
-// Validation
-// ---------------------------------------------------------------------------
-
-/**
- * Ensures the criteria currency matches the event currency of the snapshot.
- *
- * Returns `Result.Ok(void 0)` on success, or
- * `Result.Err(message)` when the currencies diverge.
- *
- * Currency comparison is case-insensitive.
- */
+/** Ensure criteria currency matches the event currency. */
 const validateCurrency = (
   snapshot: MarketSnapshot,
   criteria: Criteria,
 ): Result<Unit, EngineError> => {
-  const eventCcy = snapshot.event.currency;
-  const criteriaCcy = criteria.currency;
-  if (eventCcy !== criteriaCcy) {
-    return Result.Err(PricingErrors.currencyMismatch(eventCcy, criteriaCcy));
+  if (snapshot.event.currency !== criteria.currency) {
+    return Result.Err(
+      PricingErrors.currencyMismatch(snapshot.event.currency, criteria.currency),
+    );
   }
   return Result.Ok(void 0);
 };
 
 // ---------------------------------------------------------------------------
-// Main entry point
+// runPricingEngine
 // ---------------------------------------------------------------------------
 
 /**
  * Run the pricing engine over an entire market snapshot.
  *
- * @param snapshot   Current state of the market (event + all listings).
- * @param criteria   Rules to apply, in evaluation order.
- * @param nowMs      Optional: current UTC time as ms-since-epoch.
- *                   Defaults to `Date.now()`.  Override in tests for
- *                   deterministic staleness filtering.
- * @returns          `Result.Ok(PricingReport)` with one `SeatRecommendation`
- *                   per seat, or `Result.Err(message)` on a currency mismatch.
+ * @param snapshot  Current state of the market (event + all listings).
+ * @param criteria  Rules to apply, in evaluation order.
+ * @param nowMs     Current UTC time in ms (defaults to `Date.now()`).
+ *                  Override in tests for deterministic staleness filtering.
+ * @returns `Result.Ok(PricingReport)` or `Result.Err(EngineError)`.
  */
 export const runPricingEngine = (
   snapshot: MarketSnapshot,
@@ -84,13 +66,12 @@ export const runPricingEngine = (
 ): Result<PricingReport, EngineError> =>
   validateCurrency(snapshot, criteria).map(() => {
     const allSectionIds = collectSectionIds(snapshot.listings);
-    const { rules } = criteria;
 
     const seats: SeatRecommendation[] = R.map(
       (listing) =>
         recommendForSeat(
           listing,
-          rules,
+          criteria.rules,
           snapshot.listings,
           criteria.currency,
           allSectionIds,

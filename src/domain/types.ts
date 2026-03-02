@@ -1,42 +1,30 @@
-// ---------------------------------------------------------------------------
-// Domain identifiers
-// ---------------------------------------------------------------------------
+/**
+ * @module types
+ *
+ * All domain interfaces: market data shapes, rule configuration, and pricing
+ * engine inputs/outputs.
+ */
 
-export type Unit = void;
-export {
-  ID,
-  Label,
-  ISODateString,
-  SignedIncrement,
-  Radius,
-  MinSample,
-  MaxAgeDays,
-  Floor,
-  Ceiling,
-  CurrencyCode,
-  InvalidIDError,
-  InvalidLabelError,
-  InvalidISODateStringError,
-  InvalidSignedIncrementError,
-  InvalidRadiusError,
-  InvalidMinSampleError,
-  InvalidMaxAgeDaysError,
-  InvalidFloorError,
-  InvalidCeilingError,
-  InvalidCurrencyCodeError,
-} from './refined.js';
+import type { Option, Result } from '@carbonteq/fp';
 import type {
   ID,
   Label,
   ISODateString,
-  Radius,
+  CurrencyCode,
   SignedIncrement,
-  MinSample,
-  MaxAgeDays,
   Floor,
   Ceiling,
-  CurrencyCode,
-} from './refined.js';
+  MinSample,
+  MaxAgeDays,
+  Radius,
+} from './primitives.js';
+import type { ComputeError } from './errors.js';
+
+// ---------------------------------------------------------------------------
+// Utility
+// ---------------------------------------------------------------------------
+
+export type Unit = void;
 
 // ---------------------------------------------------------------------------
 // Market data
@@ -44,7 +32,6 @@ import type {
 
 /**
  * A point-in-time price snapshot attached to a seat listing.
- * `listedAt` is an ISO-8601 date string (e.g. "2026-02-01T10:00:00Z").
  */
 export interface ListingSnapshot {
   listingPrice: number;
@@ -77,17 +64,16 @@ export interface Listing {
   listing: ListingSnapshot;
 }
 
-/**
- * A market snapshot for a single event – one event + all known listings.
- */
+/** A market snapshot for a single event – one event + all known listings. */
 export interface MarketSnapshot {
   event: EventMeta;
   listings: Listing[];
 }
 
 // ---------------------------------------------------------------------------
-// Pricing criteria
+// Rule configuration
 // ---------------------------------------------------------------------------
+
 /**
  * Defines which comparable listings to pull when computing a base price.
  *
@@ -127,18 +113,6 @@ export interface Criteria {
 // Pricing outputs
 // ---------------------------------------------------------------------------
 
-import type { Option, Result } from '@carbonteq/fp';
-export type { Option, Result } from '@carbonteq/fp';
-export type {
-  CurrencyMismatchError,
-  NoComparablesError,
-  InsufficientSampleError,
-  ComputeError,
-  EngineError,
-  PricingError,
-} from './errors.js';
-import type { ComputeError } from './errors.js';
-
 export interface PriceResult {
   price: number;
 }
@@ -146,10 +120,8 @@ export interface PriceResult {
 /**
  * Per-rule diagnostic attached to a seat's recommendation.
  *
- * `result` is:
- *   - `Result.Ok(PriceResult)` when the rule produced a price.
- *   - `Result.Err(ComputeError)` when the rule could not produce a price
- *     (empty pool, minSample not met, etc.).
+ * `result` is `Result.Ok(PriceResult)` on success or `Result.Err(ComputeError)`
+ * when the rule could not produce a price.
  */
 export interface RuleOutcome {
   ruleId: ID;
@@ -163,10 +135,7 @@ export interface SeatRecommendation {
   eventId: ID;
   zoneId: ID;
   sectionId: ID;
-  /**
-   * The price from the first rule that succeeded (in rule-list order).
-   * `Option.None` when every rule failed.
-   */
+  /** The price from the first rule that succeeded. `None` when every rule failed. */
   recommendedPrice: Option<PriceResult>;
   outcomes: RuleOutcome[];
 }
